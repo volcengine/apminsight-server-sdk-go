@@ -23,8 +23,8 @@ func (s *sender) SendPacket(packet []byte) {
 		var err error
 		s.conn, err = net.Dial("unixgram", s.address)
 		if err != nil {
-			v := atomic.AddInt64(&s.monitor.senderDialError, 1)
-			if v&0xF == 1 && logfunc != nil {
+			atomic.AddInt64(&s.monitor.senderDialError, 1)
+			if logfunc != nil {
 				logfunc("dial address %s err %v", s.address, err)
 			}
 			return
@@ -33,8 +33,8 @@ func (s *sender) SendPacket(packet []byte) {
 	_, err := s.conn.Write(packet)
 	if err != nil {
 		s.conn = nil
-		v := atomic.AddInt64(&s.monitor.senderWriteError, 1)
-		if v&0xF == 1 && logfunc != nil {
+		atomic.AddInt64(&s.monitor.senderWriteError, 1)
+		if logfunc != nil {
 			logfunc("write conn packet %d bytes err %v", len(packet), err)
 		}
 		return
