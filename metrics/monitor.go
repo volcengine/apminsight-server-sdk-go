@@ -23,7 +23,7 @@ func newMonitor() *monitor {
 }
 
 func (m *monitor) start() {
-	tickChan := time.Tick(time.Second)
+	ticker := time.NewTicker(time.Second)
 
 	m.wg.Add(1)
 	go func() {
@@ -32,7 +32,7 @@ func (m *monitor) start() {
 		}()
 		for {
 			select {
-			case <-tickChan:
+			case <-ticker.C:
 				m.showAndReset()
 			case <-m.stopChan:
 				m.showAndReset()

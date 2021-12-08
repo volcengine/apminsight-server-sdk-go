@@ -120,10 +120,10 @@ func (mc *MetricsClient) emitMetric(mt uint8, name string, value float64, tags m
 }
 
 func (mc *MetricsClient) batchFlushLoop() {
-	ticker := time.Tick(time.Second)
+	ticker := time.NewTicker(time.Second)
 	for {
 		select {
-		case <-ticker:
+		case <-ticker.C:
 			mc.batchFlush()
 		case <-mc.flusherStop:
 			mc.batchFlush()
@@ -143,6 +143,7 @@ func (mc *MetricsClient) batchFlush() {
 	if flushBatch != nil {
 		mc.dataBuf <- flushBatch
 	}
+	mc.dataBuf <- nil
 }
 
 func (mc *MetricsClient) sendLoop() {
@@ -152,26 +153,36 @@ func (mc *MetricsClient) sendLoop() {
 
 	prefix := mc.config.prefix
 	for items := range mc.dataBuf {
-		for _, item := range *items {
-			itemBuf.Reset()
-			err := formatCommon(itemBuf, item.mt, prefix, item.name, item.value, item.tags)
-			if err != nil {
-				atomic.AddInt64(&mc.monitor.formatError, 1)
-				continue
-			}
-			data := itemBuf.Bytes()
-			if len(packetBuf)+len(data) <= maxPacketSize {
-				packetBuf = append(packetBuf, data...)
-			} else {
-				if len(data) > maxPacketSize {
-					sender.SendPacket(data)
-				} else {
-					sender.SendPacket(packetBuf)
-					packetBuf = packetBuf[:0]
+		if items != nil {
+			for _, item := range *items {
+				itemBuf.Reset()
+				err := formatCommon(itemBuf, item.mt, prefix, item.name, item.value, item.tags)
+				if err != nil {
+					atomic.AddInt64(&mc.monitor.formatError, 1)
+					continue
+				}
+				data := itemBuf.Bytes()
+				if len(packetBuf)+len(data) <= maxPacketSize {
 					packetBuf = append(packetBuf, data...)
+				} else {
+					if len(data) > maxPacketSize {
+						sender.SendPacket(data)
+					} else {
+						sender.SendPacket(packetBuf)
+						packetBuf = packetBuf[:0]
+						packetBuf = append(packetBuf, data...)
+					}
 				}
 			}
+			putMetricItems(items)
+		} else {
+			if len(packetBuf) != 0 {
+				sender.SendPacket(packetBuf)
+				packetBuf = packetBuf[:0]
+			}
 		}
-		putMetricItems(items)
+	}
+	if len(packetBuf) != 0 {
+		sender.SendPacket(packetBuf)
 	}
 }

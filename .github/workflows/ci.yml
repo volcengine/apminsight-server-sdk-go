@@ -31,7 +31,7 @@ jobs:
         version: v1.29
 
         # Optional: working directory, useful for monorepos
-        working-directory: metrics
+        # working-directory: metrics
 
         # Optional: golangci-lint command line arguments.
         # args: --issues-exit-code=0
