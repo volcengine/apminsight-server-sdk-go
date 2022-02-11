@@ -56,6 +56,8 @@ type tracer struct {
 	instanceId  string
 
 	dynamicConfig atomic.Value
+
+	contextAdapter func(context.Context) context.Context
 }
 
 func NewTracer(serviceType, service string, opts ...TracerOption) Tracer {
@@ -118,6 +120,7 @@ func NewTracer(serviceType, service string, opts ...TracerOption) Tracer {
 			t.handleSettings,
 		},
 	})
+	t.contextAdapter = config.ContextAdapter
 	return t
 }
 
@@ -172,7 +175,7 @@ func (t *tracer) Log(ctx context.Context, logData LogData) {
 		return
 	}
 	logItem := log_models.Log{}
-	span := GetSpanFromContext(ctx)
+	span := t.GetSpanFromContext(ctx)
 	if span != nil {
 		sc := span.Context()
 		if sc != nil {
@@ -284,12 +287,26 @@ func (t *tracer) StartSpanFromContext(ctx context.Context, operationName string,
 }
 
 func (t *tracer) startSpanFromContext(ctx context.Context, operationName string, defaultConfig StartSpanConfig, opts ...StartSpanOption) (Span, context.Context) {
-	s := GetSpanFromContext(ctx)
+	s := t.GetSpanFromContext(ctx)
 	if s != nil {
 		ChildOf(s.Context())(&defaultConfig)
 	}
 	span := t.startSpan(operationName, defaultConfig, opts...)
 	return span, ContextWithSpan(ctx, span)
+}
+
+func (t *tracer) GetSpanFromContext(ctx context.Context) Span {
+	if ctx == nil {
+		return nil
+	}
+	if t.contextAdapter != nil {
+		if c := t.contextAdapter(ctx); c != nil {
+			s, _ := c.Value(activeSpanContextKey).(Span)
+			return s
+		}
+	}
+	s, _ := ctx.Value(activeSpanContextKey).(Span)
+	return s
 }
 
 func (t *tracer) handleSettings(settings *settings_models.Settings) {
