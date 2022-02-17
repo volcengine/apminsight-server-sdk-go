@@ -1,6 +1,7 @@
 package gin
 
 import (
+	"context"
 	"net/http"
 	"time"
 
@@ -24,6 +25,13 @@ func NewMiddleware(tracer aitracer.Tracer) gin.HandlerFunc {
 		c.Request = c.Request.WithContext(aitracer.ContextWithSpan(c.Request.Context(), span))
 		c.Writer.Header().Add("x-trace-id", spanContext.TraceID())
 
+		span.SetTag(aitracer.HttpMethod, c.Request.Method)
+		if c.Request.URL != nil {
+			span.SetTag(aitracer.HttpScheme, c.Request.URL.Scheme)
+			span.SetTag(aitracer.HttpHost, c.Request.URL.Host)
+			span.SetTag(aitracer.HttpPath, c.Request.URL.Path)
+		}
+
 		isPanic := true
 		defer func() {
 			if isPanic {
@@ -34,6 +42,7 @@ func NewMiddleware(tracer aitracer.Tracer) gin.HandlerFunc {
 				return
 			}
 			status := c.Writer.Status()
+			span.SetTag(aitracer.HttpStatusCode, status)
 			if status == http.StatusOK {
 				span.Finish()
 			} else {
@@ -46,5 +55,18 @@ func NewMiddleware(tracer aitracer.Tracer) gin.HandlerFunc {
 		c.Next()
 		isPanic = false
 
+	}
+}
+
+// input: *gin.Context,  in order to use logrus/trace with gin.Context rather than gin.Context.Request.Context
+func NewGinContextAdapter() func(context.Context) context.Context {
+	return func(ctx context.Context) context.Context {
+		if ctx == nil {
+			return nil
+		}
+		if c, ok := ctx.(*gin.Context); ok {
+			return c.Request.Context()
+		}
+		return ctx
 	}
 }

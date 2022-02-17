@@ -8,16 +8,6 @@ import (
 	"github.com/volcengine/apminsight-server-sdk-go/trace/aitracer/logger"
 )
 
-const (
-	Web   = "web"
-	Http  = "http"
-	RPC   = "rpc"
-	GRPC  = "grpc"
-	MySQL = "mysql"
-	Redis = "redis"
-	Kafka = "kafka"
-)
-
 type StartSpanConfig struct {
 	spanType spanType
 
@@ -108,6 +98,8 @@ type TracerConfig struct {
 	PropagatorConfigs []PropagatorConfig
 
 	ServerRegisterSock string
+
+	ContextAdapter func(context.Context) context.Context
 }
 
 type TracerOption func(*TracerConfig)
@@ -171,6 +163,12 @@ func WithPropagator(format interface{}, injector Injector, extractor Extractor) 
 	}
 }
 
+func WithContextAdapter(contextAdapter func(context.Context) context.Context) TracerOption {
+	return func(config *TracerConfig) {
+		config.ContextAdapter = contextAdapter
+	}
+}
+
 type LogData struct {
 	Message   []byte
 	Timestamp time.Time
@@ -206,6 +204,7 @@ var (
 	activeSpanContextKey spanContextKey
 )
 
+// Deprecated. use aitracer.GetSpanFromContext instead
 func GetSpanFromContext(ctx context.Context) Span {
 	if ctx == nil {
 		return nil
@@ -237,12 +236,3 @@ func ClientResourceAs(clientServiceType string, clientService string, clientReso
 		config.ClientResource = clientResource
 	}
 }
-
-const (
-	LogLevelTrace = "trace"
-	LogLevelDebug = "debug"
-	LogLevelInfo  = "info"
-	LogLevelWarn  = "warn"
-	LogLevelError = "error"
-	LogLevelFatal = "fatal"
-)
