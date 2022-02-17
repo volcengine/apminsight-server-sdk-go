@@ -5,13 +5,6 @@ import (
 	"github.com/volcengine/apminsight-server-sdk-go/trace/aitracer"
 )
 
-func NewHook(tracer aitracer.Tracer, levels []logrus.Level) logrus.Hook {
-	return &Hook{
-		tracer: tracer,
-		levels: levels,
-	}
-}
-
 /*
 	depth is used to indicate how many times logrus is wrapped
 	eg:
@@ -23,7 +16,7 @@ func NewHook(tracer aitracer.Tracer, levels []logrus.Level) logrus.Hook {
 	If set, logrus.Info() can not be used directly on your code as incorrect position will be reported
 */
 
-func NewHookWithOption(tracer aitracer.Tracer, levels []logrus.Level, opts ...HookOption) logrus.Hook {
+func NewHook(tracer aitracer.Tracer, levels []logrus.Level, opts ...HookOption) logrus.Hook {
 	cfg := newDefaultHookConfig()
 	for _, opt := range opts {
 		opt(&cfg)
