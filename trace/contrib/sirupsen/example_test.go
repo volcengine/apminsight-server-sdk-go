@@ -70,7 +70,7 @@ func Test_depth(t *testing.T) {
 	logrus.SetLevel(logrus.TraceLevel)
 	logrus.SetReportCaller(true)
 
-	logrus.AddHook(ailogrus.NewHookWithOption(tracer, []logrus.Level{
+	logrus.AddHook(ailogrus.NewHook(tracer, []logrus.Level{
 		logrus.TraceLevel,
 		logrus.DebugLevel,
 		logrus.InfoLevel,
