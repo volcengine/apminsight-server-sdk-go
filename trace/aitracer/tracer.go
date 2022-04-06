@@ -384,6 +384,9 @@ func (t *tracer) emitLog(tc *traceContext) {
 		serverResource = serverSpan.serverResource
 	}
 	for _, span := range tc.spans {
+		if span == nil {
+			continue
+		}
 		if span.serverResource == "" {
 			span.serverResource = serverResource
 		}
@@ -396,6 +399,38 @@ func (t *tracer) emitLog(tc *traceContext) {
 			spanType = trace_models.SpanType_Client
 		default:
 			continue
+		}
+		errorInfoList := make([]*trace_models.ErrorInfo, 0, len(span.ErrorInfoList))
+		for _, errorInfo := range span.ErrorInfoList {
+			if errorInfo == nil {
+				continue
+			}
+			errorType := trace_models.ErrorType_UncaughtException
+			switch errorInfo.ErrorKind {
+			case ErrorKindDbError:
+				errorType = trace_models.ErrorType_DbError
+			case ErrorKindExternalServiceError:
+				errorType = trace_models.ErrorType_ExternalServiceError
+			case ErrorKindHttpCodeError:
+				errorType = trace_models.ErrorType_HttpCodeError
+			case ErrorKindNoSqlError:
+				errorType = trace_models.ErrorType_NoSqlError
+			case ErrorKindMqError:
+				errorType = trace_models.ErrorType_MqError
+			case ErrorKindUncaughtException:
+				errorType = trace_models.ErrorType_UncaughtException
+			case ErrorKindBusinessError:
+				errorType = trace_models.ErrorType_BusinessError
+			case ErrorKindPanic:
+				errorType = trace_models.ErrorType_Panic
+			}
+			errorInfoList = append(errorInfoList, &trace_models.ErrorInfo{
+				ErrorKind:      errorType,
+				ErrorMessage:   errorInfo.ErrorMessage,
+				ErrorStack:     errorInfo.ErrorStack,
+				ErrorOccurTime: errorInfo.ErrorOccurTimeMilliSec,
+				ErrorTags:      errorInfo.ErrorTags,
+			})
 		}
 		trace.Spans = append(trace.Spans, &trace_models.Span{
 			SpanType: spanType,
@@ -421,6 +456,7 @@ func (t *tracer) emitLog(tc *traceContext) {
 			CallServiceType: span.clientType,
 			CallService:     span.clientService,
 			CallResource:    span.clientResource,
+			ErrorInfoList:   errorInfoList,
 		})
 	}
 	t.traceChan <- &trace

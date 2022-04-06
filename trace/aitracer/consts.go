@@ -28,3 +28,13 @@ const (
 	HttpPath       = "http.path"
 	HttpStatusCode = "http.status_code"
 )
+
+const (
+	SdkLanguage = "sdk.language"
+	SdkVersion  = "sdk.version"
+)
+
+const (
+	SdkLanguageGolang = "golang"
+	GoErrorType       = "go.error_type"
+)
