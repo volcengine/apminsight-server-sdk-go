@@ -1,7 +1,11 @@
 package aitracer
 
 import (
+	"fmt"
+	"reflect"
+	"runtime"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -28,6 +32,9 @@ type span struct {
 	clientService  string
 	clientResource string
 
+	errLock       sync.Mutex
+	ErrorInfoList []*ErrorInfo
+
 	startTime  time.Time
 	finishTime time.Time
 	duration   time.Duration
@@ -40,6 +47,14 @@ type span struct {
 	spanContext spanContext
 
 	finished int64
+}
+
+type ErrorInfo struct {
+	ErrorKind              ErrorKind
+	ErrorMessage           string
+	ErrorStack             []string
+	ErrorOccurTimeMilliSec int64
+	ErrorTags              map[string]string
 }
 
 const (
@@ -91,6 +106,9 @@ func (s *span) emitMetric() {
 	}
 }
 
+// todo: unify Finish and FinishWithOption. func (s *span) Finish(opt ...FinishSpanOption)
+// Finish() and FinishWithOption() should be called directly by defer and recover() should be called directly in Finish() and FinishWithOption()
+// CAN NOT place recover() in a func and call the func in Finish()
 func (s *span) Finish() {
 	if !atomic.CompareAndSwapInt64(&s.finished, 0, 1) {
 		return
@@ -98,8 +116,24 @@ func (s *span) Finish() {
 
 	s.finishTime = time.Now()
 	s.duration = s.finishTime.Sub(s.startTime)
-	// emit metric
+
 	s.fillTag()
+	//recordPanic
+	if err := recover(); err != nil {
+		defer panic(err)
+		errorInfo := ErrorInfo{
+			ErrorKind:              ErrorKindPanic,
+			ErrorMessage:           fmt.Sprint(err),
+			ErrorOccurTimeMilliSec: time.Now().UnixMilli(),
+			ErrorTags:              map[string]string{GoErrorType: getErrorType(err)},
+		}
+		errorInfo.ErrorStack = getStackTrace()
+		s.errLock.Lock()
+		s.ErrorInfoList = append(s.ErrorInfoList, &errorInfo)
+		s.errLock.Unlock()
+		s.status = 1
+	}
+	// emit metric
 	s.emitMetric()
 	s.spanContext.traceContext.finishSpan()
 }
@@ -117,6 +151,23 @@ func (s *span) FinishWithOption(opt FinishSpanOption) {
 	}
 	s.duration = s.finishTime.Sub(s.startTime)
 	s.fillTag()
+	//recordPanic
+	if !opt.DisablePanicCapture {
+		if err := recover(); err != nil {
+			defer panic(err)
+			errorInfo := ErrorInfo{
+				ErrorKind:              ErrorKindPanic,
+				ErrorMessage:           fmt.Sprint(err),
+				ErrorOccurTimeMilliSec: time.Now().UnixMilli(),
+				ErrorTags:              map[string]string{GoErrorType: getErrorType(err)},
+			}
+			errorInfo.ErrorStack = getStackTrace()
+			s.errLock.Lock()
+			s.ErrorInfoList = append(s.ErrorInfoList, &errorInfo)
+			s.errLock.Unlock()
+			s.status = 1
+		}
+	}
 	s.emitMetric()
 	s.spanContext.traceContext.finishSpan()
 }
@@ -133,6 +184,35 @@ func (s *span) fillTag() {
 		}
 		s.SetTagString("db.slow_query", isSlow)
 	}
+	s.SetTagString(SdkLanguage, SdkLanguageGolang) //todo: add version
+}
+
+func (s *span) RecordError(err error, opts ...RecordOption) {
+	if s == nil || err == nil || s.isFinished() {
+		return
+	}
+	c := NewDefaultRecordConfig()
+	for _, opt := range opts {
+		opt(&c)
+	}
+	errorInfo := ErrorInfo{
+		ErrorKind:              c.ErrorKind,
+		ErrorMessage:           err.Error(),
+		ErrorOccurTimeMilliSec: time.Now().UnixMilli(),
+		ErrorTags:              map[string]string{GoErrorType: getErrorType(err)},
+	}
+	if c.RecordStack {
+		errorInfo.ErrorStack = getStackTrace()
+	}
+	s.errLock.Lock()
+	defer s.errLock.Unlock()
+	s.ErrorInfoList = append(s.ErrorInfoList, &errorInfo)
+}
+
+func getStackTrace() []string {
+	stackTrace := make([]byte, 2048)
+	n := runtime.Stack(stackTrace, false)
+	return strings.Split(string(stackTrace[0:n]), "\n")
 }
 
 func (s *span) Context() SpanContext {
@@ -249,4 +329,16 @@ func (s *span) BaggageItem(restrictedKey string) string {
 	}
 	s.spanContext.baggageLock.Unlock()
 	return ret
+}
+
+func (s *span) isFinished() bool {
+	return atomic.LoadInt64(&s.finished) == 1
+}
+
+func getErrorType(err interface{}) string {
+	t := reflect.TypeOf(err)
+	if t.PkgPath() == "" || t.Name() == "" {
+		return t.String()
+	}
+	return fmt.Sprintf("%s.%s", t.PkgPath(), t.Name())
 }

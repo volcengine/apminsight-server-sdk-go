@@ -23,8 +23,45 @@ type StartSpanConfig struct {
 type StartSpanOption func(*StartSpanConfig)
 
 type FinishSpanOption struct {
-	FinishTime time.Time
-	Status     int64
+	FinishTime          time.Time
+	Status              int64
+	DisablePanicCapture bool // By default panic is captured, set True to disable
+}
+
+type RecordConfig struct {
+	ErrorKind   ErrorKind
+	RecordStack bool // record stack is expensive and is disabled by default
+}
+
+func NewDefaultRecordConfig() RecordConfig {
+	return RecordConfig{ErrorKind: ErrorKindBusinessError}
+}
+
+type ErrorKind int32
+
+const (
+	ErrorKindDbError ErrorKind = iota
+	ErrorKindExternalServiceError
+	ErrorKindHttpCodeError
+	ErrorKindNoSqlError
+	ErrorKindMqError
+	ErrorKindUncaughtException
+	ErrorKindBusinessError
+	ErrorKindPanic
+)
+
+type RecordOption func(*RecordConfig)
+
+func WithErrorKind(t ErrorKind) RecordOption {
+	return func(cfg *RecordConfig) {
+		cfg.ErrorKind = t
+	}
+}
+
+func WithRecordStack(b bool) RecordOption {
+	return func(cfg *RecordConfig) {
+		cfg.RecordStack = b
+	}
 }
 
 type Span interface {
@@ -39,6 +76,8 @@ type Span interface {
 	SetTagString(key string, value string) Span
 	SetTagFloat64(key string, value float64) Span
 	SetTagInt64(key string, value int64) Span
+
+	RecordError(err error, opt ...RecordOption)
 }
 
 type SampleStrategy byte
