@@ -34,7 +34,7 @@ type Register struct {
 	wg       sync.WaitGroup
 }
 
-func NewRegister(service, serviceType string, instanceId string, sock string, interval time.Duration, logger logger.Logger) *Register {
+func NewRegister(service, serviceType, instanceId, sock string, interval time.Duration, logger logger.Logger) *Register {
 	url := fmt.Sprintf("http://%s/service_register", network)
 	c := &http.Client{
 		Transport: &http.Transport{
@@ -105,6 +105,7 @@ func (r *Register) register() {
 	q.Add("start_time", strconv.FormatInt(info.StartTime, 10))
 	q.Add("service", r.service)
 	q.Add("service_type", r.serviceType)
+	q.Add("runtime_type", "Go")
 	if info.ContainerId != "" {
 		q.Add("container_id", info.ContainerId)
 	}

@@ -133,6 +133,8 @@ type TracerConfig struct {
 	LogSenderNumber   int
 	LogSenderChanSize int
 
+	EnableRuntimeMetric bool
+
 	SettingsFetcherSock string
 
 	PropagatorConfigs []PropagatorConfig
@@ -193,6 +195,12 @@ func WithMetricsAddress(metricAddress string) TracerOption {
 func WithLogSender(enable bool) TracerOption {
 	return func(config *TracerConfig) {
 		config.EnableLogSender = enable
+	}
+}
+
+func WithRuntimeMetric(enable bool) TracerOption {
+	return func(config *TracerConfig) {
+		config.EnableRuntimeMetric = enable
 	}
 }
 
