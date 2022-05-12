@@ -78,6 +78,7 @@ type Span interface {
 	SetTagInt64(key string, value int64) Span
 
 	RecordError(err error, opt ...RecordOption)
+	SetStatus(status int64)
 }
 
 type SampleStrategy byte

@@ -3,7 +3,6 @@ package gin
 import (
 	"context"
 	"net/http"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/volcengine/apminsight-server-sdk-go/trace/aitracer"
@@ -32,29 +31,23 @@ func NewMiddleware(tracer aitracer.Tracer) gin.HandlerFunc {
 			span.SetTag(aitracer.HttpPath, c.Request.URL.Path)
 		}
 
+		// Finish should be called directly by defer
+		defer span.Finish()
+
 		isPanic := true
 		defer func() {
-			if isPanic {
-				span.FinishWithOption(aitracer.FinishSpanOption{
-					Status:     1,
-					FinishTime: time.Now(),
-				})
-				return
-			}
 			status := c.Writer.Status()
+			if isPanic {
+				status = http.StatusInternalServerError //trace middle is executed before gin.defaultHandleRecovery
+			}
 			span.SetTag(aitracer.HttpStatusCode, status)
-			if status == http.StatusOK {
-				span.Finish()
-			} else {
-				span.FinishWithOption(aitracer.FinishSpanOption{
-					Status:     int64(status),
-					FinishTime: time.Now(),
-				})
+			if status != http.StatusOK {
+				span.SetStatus(int64(status))
 			}
 		}()
+
 		c.Next()
 		isPanic = false
-
 	}
 }
 
