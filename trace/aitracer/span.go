@@ -106,9 +106,18 @@ func (s *span) emitMetric() {
 	}
 }
 
-// todo: unify Finish and FinishWithOption. func (s *span) Finish(opt ...FinishSpanOption)
-// Finish() and FinishWithOption() should be called directly by defer and recover() should be called directly in Finish() and FinishWithOption()
-// CAN NOT place recover() in a func and call the func in Finish()
+// Finish todo: unify Finish and FinishWithOption. func (s *span) Finish(opt ...FinishSpanOption)
+// Finish() and FinishWithOption() should be called directly by defer (but not be wrapped by a func) and recover() should be called directly in Finish() and FinishWithOption()
+/*
+	defer span.Finish()  // good
+
+	defer func(){        // bad. can not capture panic
+          span.Finish()
+	}()
+
+*/
+// DO NOT place recover() in a func and call the func in Finish()
+
 func (s *span) Finish() {
 	if !atomic.CompareAndSwapInt64(&s.finished, 0, 1) {
 		return
@@ -207,6 +216,13 @@ func (s *span) RecordError(err error, opts ...RecordOption) {
 	s.errLock.Lock()
 	defer s.errLock.Unlock()
 	s.ErrorInfoList = append(s.ErrorInfoList, &errorInfo)
+}
+
+func (s *span) SetStatus(status int64) {
+	if s == nil || s.isFinished() {
+		return
+	}
+	s.status = status
 }
 
 func getStackTrace() []string {
