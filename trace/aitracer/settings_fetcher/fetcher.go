@@ -75,6 +75,9 @@ func (f *Fetcher) Start() {
 	f.wg.Add(1)
 	go func() {
 		t := time.NewTicker(time.Second * 30)
+		defer func() {
+			t.Stop()
+		}()
 		for {
 			select {
 			case <-t.C:

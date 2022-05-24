@@ -24,6 +24,9 @@ func newMonitor() *monitor {
 
 func (m *monitor) start() {
 	ticker := time.NewTicker(time.Second)
+	defer func() {
+		ticker.Stop()
+	}()
 
 	m.wg.Add(1)
 	go func() {

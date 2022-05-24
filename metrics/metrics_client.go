@@ -121,6 +121,9 @@ func (mc *MetricsClient) emitMetric(mt uint8, name string, value float64, tags m
 
 func (mc *MetricsClient) batchFlushLoop() {
 	ticker := time.NewTicker(time.Second)
+	defer func() {
+		ticker.Stop()
+	}()
 	for {
 		select {
 		case <-ticker.C:
