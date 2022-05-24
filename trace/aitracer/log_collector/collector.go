@@ -89,6 +89,9 @@ func (s *LogCollector) sendLoop() {
 	}()
 	batchLog := make([]byte, 0, maxBatchBytes)
 	tc := time.NewTicker(time.Second * 5)
+	defer func() {
+		tc.Stop()
+	}()
 	for {
 		select {
 		case <-tc.C:

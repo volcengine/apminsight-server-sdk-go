@@ -74,6 +74,9 @@ func (r *Register) runLoop() {
 	r.register()
 
 	t := time.NewTicker(r.interval)
+	defer func() {
+		t.Stop()
+	}()
 	for {
 		select {
 		case <-t.C:

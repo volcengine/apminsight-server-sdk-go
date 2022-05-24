@@ -57,6 +57,9 @@ func (s *TraceSender) sendLoop() {
 	}()
 	batchTrace := make([]byte, 0, maxBatchBytes)
 	tc := time.NewTicker(time.Second)
+	defer func() {
+		tc.Stop()
+	}()
 	for {
 		select {
 		case <-tc.C:
