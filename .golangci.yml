@@ -99,6 +99,8 @@ linters:
 linters-settings:  
   goimports: 
     local-prefixes: code.byted.org,git.byted.org
+  bgolint:
+    min-confidence: 0.8
 
 issues:
   exclude-use-default: true
