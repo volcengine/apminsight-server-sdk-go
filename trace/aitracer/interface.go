@@ -169,6 +169,9 @@ func WithSenderNumber(senderNumber int) TracerOption {
 	}
 }
 
+// WithLogger set logger for sdk.
+// DO NOT USE logrus as logger if you have hooked logrus to tracer
+// this will cause recursive call on logrus: logrus.Info -> trace.Logger.Info -> logrus.Info
 func WithLogger(logger logger.Logger) TracerOption {
 	return func(config *TracerConfig) {
 		config.Logger = logger
