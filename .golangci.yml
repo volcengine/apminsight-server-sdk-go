@@ -1,7 +1,6 @@
 # ByteDance golangci-lint default config
 # Version: beta
 # Download latest version: `golangci-lint bconfig`
-# Doc: https://bytedance.feishu.cn/docs/doccndTUkRoSpGEgeBsyHYvF4Lg#
 # Configuration doc: https://golangci-lint.run/usage/configuration/
 
 run:
@@ -96,9 +95,7 @@ linters:
     # - stylecheck        # => bgolint
     # - golint            # => bgolint
 
-linters-settings:  
-  goimports: 
-    local-prefixes: code.byted.org,git.byted.org
+linters-settings:
   bgolint:
     min-confidence: 0.8
 
