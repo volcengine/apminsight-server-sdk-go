@@ -1,0 +1,8 @@
+name: golangci-lint
+trigger: change
+jobs:
+  golangci-lint:
+    image: hub.byted.org/byteapm/byteapm-golangci-lint:001e98ef4db5e6e3f05f4aee8a6c11b1
+    steps:
+      - commands:
+          - golangci-lint run -v --timeout=3m --new-from-rev origin/master -c ./.golangci4dev.yml ./...

@@ -15,6 +15,7 @@ run:
     - rpc_gen
     - kitex_gen
     - thrift_gen
+    - thrift_models
   skip-files:
     - idls.go
     - kite.go
@@ -22,11 +23,13 @@ run:
     - ".*\\.gen\\.go$"
     - ".*\\.mock\\.go$"
     - ".*\\.thrift\\.go$"
+    - ".*_test.go$"
+    - tables.go
 
 linters:
   disable-all: true # disable all linters, but left linters below
   enable:
-    #- bgolint       # ByteDance Go code style linter
+    - bgolint       # ByteDance Go code style linter
     - bodyclose     # checks whether HTTP response body is closed successfully
     - errcheck      # checking for unchecked errors in go programs
     - staticcheck   # go vet on steroids, applying a ton of static analysis checks
@@ -98,8 +101,22 @@ linters:
 linters-settings:
   bgolint:
     min-confidence: 0.8
+  goconst:
+    min-occurrences: 10
+
 
 issues:
   exclude-use-default: true
+  exclude-rules:
+    - linters: [ bgolint ]
+      text: "don't use an underscore in package name"
+    - linters: [ bgolint ]
+      text: "^don't use an underscore in package name in Go names;"
+    - linters: [ bgolint ]
+      text: "^(type|method|var|const|struct\ field|func\ parameter|func|method\ parameter|interface\ method\ parameter) `?[a-zA-Z][a-zA-Z0-9_]*`? should be `?[a-zA-Z][a-zA-Z0-9_]*`?$"
+    - linters: [ bgolint ]
+      text: "^comment on exported [a-z]+ [`\"]?[a-zA-Z][a-zA-Z0-9_]*[`\"]? should be of the form [`\"]?[a-zA-Z][a-zA-Z0-9_]* ...[`\"]?( [(]with optional leading article[)])?$"
   include:
-    # - BEXC0001 # uncomment this line makes `bgolint` check package and exported (const|function|*) should have comment.
+  # - BEXC0001 # uncomment this line makes `bgolint` check package and exported (const|function|*) should have comment.
+  max-issues-per-linter: 0
+  max-same-issues: 0
