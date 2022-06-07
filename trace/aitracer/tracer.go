@@ -2,18 +2,15 @@ package aitracer
 
 import (
 	"context"
+	"sync/atomic"
 	"time"
 
-	"sync/atomic"
-
-	"strings"
-
-	uuid "github.com/satori/go.uuid"
 	"github.com/volcengine/apminsight-server-sdk-go/metrics"
 	"github.com/volcengine/apminsight-server-sdk-go/trace/aitracer/id_generator"
 	"github.com/volcengine/apminsight-server-sdk-go/trace/aitracer/log_collector"
 	"github.com/volcengine/apminsight-server-sdk-go/trace/aitracer/log_collector/log_models"
 	"github.com/volcengine/apminsight-server-sdk-go/trace/aitracer/logger"
+	"github.com/volcengine/apminsight-server-sdk-go/trace/aitracer/runtime"
 	"github.com/volcengine/apminsight-server-sdk-go/trace/aitracer/service_register"
 	"github.com/volcengine/apminsight-server-sdk-go/trace/aitracer/service_register/register_utils"
 	"github.com/volcengine/apminsight-server-sdk-go/trace/aitracer/settings_fetcher"
@@ -52,6 +49,8 @@ type tracer struct {
 
 	settingsFetcher *settings_fetcher.Fetcher
 
+	runtimeMonitor *runtime.Monitor
+
 	containerId string
 	instanceId  string
 
@@ -81,8 +80,7 @@ func NewTracer(serviceType, service string, opts ...TracerOption) Tracer {
 		extractors: map[interface{}]Extractor{},
 	}
 	{
-		instanceUuid := uuid.NewV4()
-		t.instanceId = strings.Replace(instanceUuid.String(), "-", "", -1)
+		t.instanceId = register_utils.GetInstanceID()
 	}
 	info, _ := register_utils.GetInfo()
 	if len(info.ContainerId) != 0 {
@@ -96,6 +94,15 @@ func NewTracer(serviceType, service string, opts ...TracerOption) Tracer {
 			Logger:       config.Logger,
 		}
 		t.logCollector = log_collector.NewLogCollector(config)
+	}
+	if config.EnableRuntimeMetric {
+		var mc *metrics.MetricsClient
+		if config.MetricSock != "" {
+			mc = metrics.NewMetricClient(metrics.WithAddress(config.MetricSock))
+		} else {
+			mc = metrics.NewMetricClient()
+		}
+		t.runtimeMonitor = runtime.NewMonitor(serviceType, service, mc)
 	}
 	if config.EnableMetric {
 		if config.MetricSock != "" {
@@ -137,10 +144,12 @@ func (t *tracer) Start() {
 		sender.Start()
 	}
 	t.serviceRegister.Start()
+	t.runtimeMonitor.Start()
 }
 
 func (t *tracer) Stop() {
 	t.serviceRegister.Stop()
+	t.runtimeMonitor.Close()
 	close(t.traceChan)
 	for _, sender := range t.traceSenders {
 		sender.WaitStop()

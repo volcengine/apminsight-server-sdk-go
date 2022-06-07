@@ -34,6 +34,8 @@ func newDefaultTracerConfig() TracerConfig {
 		LogSenderNumber:   defaultLogSenderNumber,
 		LogSenderChanSize: defaultLogSenderChanSize,
 
+		EnableRuntimeMetric: true,
+
 		SettingsFetcherSock: defaultSettingsSock,
 
 		ServerRegisterSock: defaultServiceRegisterSock,

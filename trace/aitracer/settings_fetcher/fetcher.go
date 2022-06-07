@@ -74,6 +74,7 @@ func (f *Fetcher) Start() {
 	f.refreshSettings()
 	f.wg.Add(1)
 	go func() {
+		defer f.wg.Done()
 		t := time.NewTicker(time.Second * 30)
 		defer func() {
 			t.Stop()
@@ -91,7 +92,7 @@ func (f *Fetcher) Start() {
 
 func (f *Fetcher) Stop() {
 	close(f.closeChan)
-	f.wg.Done()
+	f.wg.Wait()
 }
 
 func (f *Fetcher) refreshSettings() {
