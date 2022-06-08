@@ -210,8 +210,10 @@ func (s *span) RecordError(err error, opts ...RecordOption) {
 		ErrorOccurTimeMilliSec: time.Now().Unix()*1e3 + int64(time.Now().Nanosecond())/1e6,
 		ErrorTags:              map[string]string{GoErrorType: getErrorType(err)},
 	}
-	if c.RecordStack {
+	if c.RecordStack && c.Stack == "" {
 		errorInfo.ErrorStack = getStackTrace()
+	} else if c.Stack != "" {
+		errorInfo.ErrorStack = strings.Split(c.Stack, "\n")
 	}
 	s.errLock.Lock()
 	defer s.errLock.Unlock()

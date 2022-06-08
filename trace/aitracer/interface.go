@@ -30,7 +30,8 @@ type FinishSpanOption struct {
 
 type RecordConfig struct {
 	ErrorKind   ErrorKind
-	RecordStack bool // record stack is expensive and is disabled by default
+	RecordStack bool   // record stack is expensive and is disabled by default
+	Stack       string // stack passed in. which is useful where RecordError being called is different from error occurred
 }
 
 func NewDefaultRecordConfig() RecordConfig {
@@ -61,6 +62,12 @@ func WithErrorKind(t ErrorKind) RecordOption {
 func WithRecordStack(b bool) RecordOption {
 	return func(cfg *RecordConfig) {
 		cfg.RecordStack = b
+	}
+}
+
+func WithStack(stack string) RecordOption {
+	return func(cgf *RecordConfig) {
+		cgf.Stack = stack
 	}
 }
 
