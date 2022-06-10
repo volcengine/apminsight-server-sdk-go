@@ -133,7 +133,7 @@ func (s *span) Finish() {
 		errorInfo := ErrorInfo{
 			ErrorKind:              ErrorKindPanic,
 			ErrorMessage:           fmt.Sprint(err),
-			ErrorOccurTimeMilliSec: time.Now().UnixMilli(),
+			ErrorOccurTimeMilliSec: time.Now().Unix()*1e3 + int64(time.Now().Nanosecond())/1e6,
 			ErrorTags:              map[string]string{GoErrorType: getErrorType(err)},
 		}
 		errorInfo.ErrorStack = getStackTrace()
@@ -167,7 +167,7 @@ func (s *span) FinishWithOption(opt FinishSpanOption) {
 			errorInfo := ErrorInfo{
 				ErrorKind:              ErrorKindPanic,
 				ErrorMessage:           fmt.Sprint(err),
-				ErrorOccurTimeMilliSec: time.Now().UnixMilli(),
+				ErrorOccurTimeMilliSec: time.Now().Unix()*1e3 + int64(time.Now().Nanosecond())/1e6,
 				ErrorTags:              map[string]string{GoErrorType: getErrorType(err)},
 			}
 			errorInfo.ErrorStack = getStackTrace()
@@ -207,7 +207,7 @@ func (s *span) RecordError(err error, opts ...RecordOption) {
 	errorInfo := ErrorInfo{
 		ErrorKind:              c.ErrorKind,
 		ErrorMessage:           err.Error(),
-		ErrorOccurTimeMilliSec: time.Now().UnixMilli(),
+		ErrorOccurTimeMilliSec: time.Now().Unix()*1e3 + int64(time.Now().Nanosecond())/1e6,
 		ErrorTags:              map[string]string{GoErrorType: getErrorType(err)},
 	}
 	if c.RecordStack {
