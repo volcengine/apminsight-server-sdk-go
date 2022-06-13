@@ -50,10 +50,12 @@ func (rt *roundTripper) RoundTrip(req *http.Request) (res *http.Response, err er
 	_ = rt.tracer.Inject(span.Context(), aitracer.HTTPHeaders, aitracer.HTTPHeadersCarrier(req.Header))
 	res, err = rt.base.RoundTrip(req.WithContext(ctx))
 	if err != nil {
+		span.SetTag(aitracer.HttpStatusCode, http.StatusInternalServerError)
 		span.FinishWithOption(aitracer.FinishSpanOption{
 			Status: 1,
 		})
 	} else {
+		span.SetTag(aitracer.HttpStatusCode, res.StatusCode)
 		if res.StatusCode == http.StatusOK {
 			span.Finish()
 		} else {

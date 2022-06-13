@@ -1,6 +1,8 @@
 package aitracer
 
-import "github.com/volcengine/apminsight-server-sdk-go/trace/aitracer/logger"
+import (
+	"github.com/volcengine/apminsight-server-sdk-go/trace/aitracer/logger"
+)
 
 const (
 	defaultSenderSock     = "/var/run/apminsight/trace.sock"
@@ -45,6 +47,11 @@ func newDefaultTracerConfig() TracerConfig {
 				Format:    HTTPHeaders,
 				Injector:  &HTTPHeadersInjector{},
 				Extractor: &HTTPHeadersExtractor{},
+			},
+			{
+				Format:    Binary,
+				Injector:  &BinaryCarrierInjector{},
+				Extractor: &BinaryCarrierExtractor{},
 			},
 		},
 	}
