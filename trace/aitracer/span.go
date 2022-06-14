@@ -193,7 +193,8 @@ func (s *span) fillTag() {
 		}
 		s.SetTagString("db.slow_query", isSlow)
 	}
-	s.SetTagString(SdkLanguage, SdkLanguageGolang) //todo: add version
+	// must add sdk info to every span. this info is used to handler stack
+	s.SetTagString(SdkLanguage, Go) //todo: add version
 }
 
 func (s *span) RecordError(err error, opts ...RecordOption) {
