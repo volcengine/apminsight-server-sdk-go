@@ -112,7 +112,7 @@ func NewClientMiddleware(tracer aitracer.Tracer) endpoint.Middleware {
 			}()
 
 			// inject spanCtx in buf
-			buf := bytes.NewBuffer(make([]byte, 0))
+			buf := bytes.NewBuffer(nil)
 			err = tracer.Inject(span.Context(), aitracer.Binary, aitracer.BinaryCarrier(buf))
 			// set buf in metainfo
 			ctxWithSpan = metainfo.WithValue(ctxWithSpan, SpanContextKey, buf.String())
