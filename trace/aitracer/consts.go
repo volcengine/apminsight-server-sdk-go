@@ -30,11 +30,14 @@ const (
 )
 
 const (
-	SdkLanguage = "sdk.language"
+	Go = "Go" // equal to runtime_type "Go" in service_register
+)
+
+const (
+	SdkLanguage = "sdk.language" // alias of runtime_type,  values of sdk.language are always equal to runtime_type, but more comprehensible for user
 	SdkVersion  = "sdk.version"
 )
 
 const (
-	SdkLanguageGolang = "golang"
-	GoErrorType       = "go.error_type"
+	GoErrorType = "go.error_type"
 )
