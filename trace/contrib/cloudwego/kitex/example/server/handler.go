@@ -28,8 +28,9 @@ func (s *HelloImpl) Echo(ctx context.Context, req *api.Request) (resp *api.Respo
 	// lets say kitex calls a http service
 	resp.Message = CallRemote(ctx)
 
-	err = fmt.Errorf("this is an error")
-
+	if os.Getenv("TEST_ERROR") != "" {
+		err = fmt.Errorf("this is an error")
+	}
 	{
 		if os.Getenv("TEST_PANIC") != "" {
 			panic("test panic capture")

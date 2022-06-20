@@ -51,13 +51,17 @@ func NewMiddleware(tracer aitracer.Tracer) gin.HandlerFunc {
 	}
 }
 
-// input: *gin.Context,  in order to use logrus/trace with gin.Context rather than gin.Context.Request.Context
+// NewGinContextAdapter is used to run logrus/trace with gin.Context() rather than gin.Context.Request.Context(), however this will not work when ctx is wrapped (such as kitex)
+// Deprecated
+// Recommended solution:
+// 1. Use gin.Context.Request.Context() when tracing
+// 2. For gin version>=1.8.1, set engin.ContextWithFallback=true, which solve this problem perfectly.
 func NewGinContextAdapter() func(context.Context) context.Context {
 	return func(ctx context.Context) context.Context {
 		if ctx == nil {
 			return nil
 		}
-		if c, ok := ctx.(*gin.Context); ok {
+		if c, ok := ctx.(*gin.Context); ok { // when ctx is wrapped, this solution fails
 			return c.Request.Context()
 		}
 		return ctx
