@@ -9,6 +9,10 @@ type traceContext struct {
 	sampleStrategy SampleStrategy
 	sampleWeight   int
 
+	clientSampled bool // do not need to pass through along the trace link
+
+	sampleFlags SampleFlags
+
 	tracer *tracer
 
 	spansLock   sync.Mutex

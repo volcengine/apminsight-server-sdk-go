@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+
+	"github.com/volcengine/apminsight-server-sdk-go/trace/aitracer/internal"
 )
 
 type BuiltinFormat byte
@@ -55,15 +57,37 @@ func (injector *HTTPHeadersInjector) Inject(sc SpanContext, carrier interface{})
 		c.Set(defaultSampleHitHeader, "0")
 		c.Set(defaultSampleWeightHeader, strconv.Itoa(weight))
 	}
+
+	// baggage
+	sc.ForeachBaggageItem(func(key string, value string) bool {
+		c.Set(defaultBaggageHeaderPrefix+key, value)
+		return true
+	})
+
+	// sampleFlags
+	c.Set(defaultSampleFlags, sc.SampleFlags().ToString())
+
 	return nil
 }
 
 const (
 	defaultTraceIDHeader       = "x-trace-id"
 	defaultSpanIDHeader        = "x-span-id"
-	defaultSampleHitHeader     = "x-sample-hit"
-	defaultSampleWeightHeader  = "x-sample-weight"
+	defaultSampleHitHeader     = "x-sample-hit"    // server side sample. 0: not server sampled, 1: server sampled
+	defaultSampleWeightHeader  = "x-sample-weight" // server side weight, value is 1/server_side_sample_rate
 	defaultBaggageHeaderPrefix = "x-baggage-"
+
+	// from client
+	defaultRumW3cTraceparent = "x-rum-traceparent"
+	defaultRumW3cTracestate  = "x-rum-tracestate"
+
+	defaultSampleFlags = "x-sample-flags" // used to indicate sample result.  0: not sampled, 1: client sampled, 2: server sampled, 3: client and server sampled
+)
+
+const (
+	// baggage key
+	defaultAppIDBaggageKey  = "apmplus.app_id"
+	defaultOriginBaggageKey = "apmplus.origin"
 )
 
 type HTTPHeadersExtractor struct {
@@ -76,6 +100,8 @@ type HTTPHeaderExtractSpanContext struct {
 	spanID         string
 	sampleStrategy SampleStrategy
 	sampleWeight   int
+	clientSampled  bool // currently only spanContext from HTTP Header contains clientSampled
+	sampleFlags    SampleFlags
 	baggage        map[string]string
 }
 
@@ -91,6 +117,14 @@ func (sc *HTTPHeaderExtractSpanContext) Sample() (SampleStrategy, int) {
 	return sc.sampleStrategy, sc.sampleWeight
 }
 
+func (sc *HTTPHeaderExtractSpanContext) SampleFlags() SampleFlags {
+	return sc.sampleFlags
+}
+
+func (sc *HTTPHeaderExtractSpanContext) ClientSampled() bool {
+	return sc.clientSampled
+}
+
 func (sc *HTTPHeaderExtractSpanContext) ForeachBaggageItem(h func(string, string) bool) {
 	for key, val := range sc.baggage {
 		if !h(key, val) {
@@ -103,7 +137,7 @@ func (extractor *HTTPHeadersExtractor) Extract(carrier interface{}) (SpanContext
 	c, ok := carrier.(HTTPHeadersCarrier)
 	if ok {
 		ctx := HTTPHeaderExtractSpanContext{
-			baggage: map[string]string{},
+			sampleFlags: SampleFlagsUnknown, // note that sampleFlags should be initialized as Unknown
 		}
 		_ = c.ForeachKey(func(key, val string) error {
 			lowerKey := strings.ToLower(key)
@@ -122,8 +156,30 @@ func (extractor *HTTPHeadersExtractor) Extract(carrier interface{}) (SpanContext
 				}
 			case defaultSampleWeightHeader:
 				ctx.sampleWeight, _ = strconv.Atoi(val)
+
+			// feat: support end to end. parse w3c header coming from client
+			case defaultRumW3cTraceparent:
+				if traceParent, err := internal.DefaultSimpleW3CFormatParser.ParseTraceParent(val); err == nil { // get traceId and spanId from client context
+					ctx.traceID = traceParent.TraceID
+					ctx.spanID = traceParent.ParentSpanID
+					ctx.clientSampled = traceParent.TraceFlags == 1
+				}
+			case defaultRumW3cTracestate:
+				if traceState, err := internal.DefaultSimpleW3CFormatParser.ParseTraceState(val); err == nil { // set appId and origin in baggage
+					if ctx.baggage == nil {
+						ctx.baggage = make(map[string]string)
+					}
+					ctx.baggage[defaultAppIDBaggageKey] = traceState.GetAppID()
+					ctx.baggage[defaultOriginBaggageKey] = traceState.GetOrigin()
+				}
+			case defaultSampleFlags:
+				flags, _ := strconv.Atoi(val)
+				ctx.sampleFlags = SampleFlagsFromInt32(int32(flags))
 			default:
 				if strings.HasPrefix(lowerKey, defaultBaggageHeaderPrefix) {
+					if ctx.baggage == nil {
+						ctx.baggage = make(map[string]string)
+					}
 					ctx.baggage[lowerKey[len(defaultBaggageHeaderPrefix):]] = val
 				}
 			}
@@ -142,6 +198,7 @@ type BinaryExtractSpanContext struct {
 	spanId         string
 	sampleStrategy SampleStrategy
 	sampleWeight   int
+	sampleFlags    SampleFlags
 	baggage        map[string]string
 }
 
@@ -151,6 +208,18 @@ func (sc *BinaryExtractSpanContext) TraceID() string {
 
 func (sc *BinaryExtractSpanContext) SpanID() string {
 	return sc.spanId
+}
+
+func (sc *BinaryExtractSpanContext) Sample() (SampleStrategy, int) {
+	return sc.sampleStrategy, sc.sampleWeight
+}
+
+func (sc *BinaryExtractSpanContext) SampleFlags() SampleFlags {
+	return sc.sampleFlags
+}
+
+func (sc *BinaryExtractSpanContext) ClientSampled() bool {
+	return false
 }
 
 func (sc *BinaryExtractSpanContext) ForeachBaggageItem(f func(string, string) bool) {
@@ -219,6 +288,12 @@ func (i *BinaryCarrierInjector) Inject(sc SpanContext, carrier interface{}) erro
 		}
 		return true
 	})
+
+	// sampleFlags
+	if err := binary.Write(ioCarrier, binary.LittleEndian, int32(sc.SampleFlags())); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -261,7 +336,7 @@ func (e *BinaryCarrierExtractor) Extract(carrier interface{}) (SpanContext, erro
 	if err := binary.Read(ioCarrier, binary.LittleEndian, &cnt); err != nil {
 		return nil, err
 	}
-	baggage := make(map[string]string)
+	var baggage map[string]string
 	for i := 0; i < int(cnt); i++ {
 		key, err := readString(ioCarrier)
 		if err != nil {
@@ -271,21 +346,26 @@ func (e *BinaryCarrierExtractor) Extract(carrier interface{}) (SpanContext, erro
 		if err != nil {
 			return nil, err
 		}
+		if baggage == nil {
+			baggage = make(map[string]string)
+		}
 		baggage[key] = value
 	}
+
+	// sampleFlags
+	sampleFlagsInt := int32(SampleFlagsUnknown)                      // note that sampleFlags should be initialized as Unknown
+	_ = binary.Read(ioCarrier, binary.LittleEndian, &sampleFlagsInt) // optional field. Error should be ignored
+	sampleFlags := SampleFlagsFromInt32(sampleFlagsInt)
 
 	spanContext := BinaryExtractSpanContext{
 		traceId:        traceId,
 		spanId:         spanId,
 		sampleStrategy: sampleStrategy,
 		sampleWeight:   int(sampleWeight),
+		sampleFlags:    sampleFlags,
 		baggage:        baggage,
 	}
 	return &spanContext, nil
-}
-
-func (sc *BinaryExtractSpanContext) Sample() (SampleStrategy, int) {
-	return sc.sampleStrategy, sc.sampleWeight
 }
 
 func writeString(writer io.Writer, s string) error {

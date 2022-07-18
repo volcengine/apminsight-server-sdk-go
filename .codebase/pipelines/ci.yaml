@@ -1,2 +1,2 @@
 template: apmplus-server-ci
-config: ".golangci4api.yml"
+config: ".golangci4sdk.yml"

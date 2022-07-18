@@ -230,12 +230,16 @@ func (t *tracer) startSpan(operationName string, defaultConfig StartSpanConfig, 
 	startTime := time.Now()
 	spanId := t.idGenerator.GenId()
 	parentSpanID := ""
-	var traceCtx *traceContext
+	var (
+		traceCtx        *traceContext
+		incomingBaggage map[string]string
+	)
 
 	traceResource := defaultConfig.ServerResource
 	if traceResource == "" {
 		traceResource = "empty"
 	}
+
 	if defaultConfig.parentSpanContext != nil {
 		parentSpanContext, ok := defaultConfig.parentSpanContext.(*spanContext)
 		if ok && parentSpanContext != nil {
@@ -246,17 +250,29 @@ func (t *tracer) startSpan(operationName string, defaultConfig StartSpanConfig, 
 			// 传播
 			parentSpanID = defaultConfig.parentSpanContext.SpanID()
 			traceCtx = &traceContext{
-				traceID:  defaultConfig.parentSpanContext.TraceID(),
-				resource: traceResource,
-				tracer:   t,
+				traceID:       defaultConfig.parentSpanContext.TraceID(),
+				resource:      traceResource,
+				clientSampled: defaultConfig.parentSpanContext.ClientSampled(),
+				sampleFlags:   defaultConfig.parentSpanContext.SampleFlags(),
+				tracer:        t,
 			}
 			traceCtx.sampleStrategy, traceCtx.sampleWeight = defaultConfig.parentSpanContext.Sample()
 		}
+
+		// copy parent baggage to new span
+		defaultConfig.parentSpanContext.ForeachBaggageItem(func(k string, v string) bool {
+			if incomingBaggage == nil {
+				incomingBaggage = make(map[string]string)
+			}
+			incomingBaggage[k] = v
+			return true
+		})
 	} else {
 		traceCtx = &traceContext{
-			traceID:  t.idGenerator.GenId(),
-			resource: traceResource,
-			tracer:   t,
+			traceID:     t.idGenerator.GenId(),
+			resource:    traceResource,
+			sampleFlags: SampleFlagsUnknown,
+			tracer:      t,
 		}
 	}
 	if traceCtx.sampleStrategy == SampleStrategyUnknown {
@@ -266,6 +282,23 @@ func (t *tracer) startSpan(operationName string, defaultConfig StartSpanConfig, 
 			traceCtx.sampleWeight = weight
 		} else {
 			traceCtx.sampleStrategy = SampleStrategyNotSampled
+		}
+	}
+
+	// sampleStrategy has been determined so sampleFlags can be assigned
+	if traceCtx.sampleFlags == SampleFlagsUnknown {
+		if traceCtx.sampleStrategy == SampleStrategyNotSampled {
+			if traceCtx.clientSampled {
+				traceCtx.sampleFlags = SampleFlagsClientSampled
+			} else {
+				traceCtx.sampleFlags = SampleFlagsNotSampled
+			}
+		} else if traceCtx.sampleStrategy == SampleStrategySampled {
+			if traceCtx.clientSampled {
+				traceCtx.sampleFlags = SampleFlagsClientAndServerSampled
+			} else {
+				traceCtx.sampleFlags = SampleFlagsServerSampled
+			}
 		}
 	}
 
@@ -285,6 +318,7 @@ func (t *tracer) startSpan(operationName string, defaultConfig StartSpanConfig, 
 			spanID:       spanId,
 			parentSpanID: parentSpanID,
 			traceContext: traceCtx,
+			baggage:      incomingBaggage,
 		},
 	}
 	s.spanContext.traceContext.addSpan(s)
@@ -368,10 +402,10 @@ func (t *tracer) handleSettingsForDynamicConfig(settings *settings_models.Settin
 	t.dynamicConfig.Store(newDynamicConfig)
 }
 
-//
+// collect send trace via UDS
 func (t *tracer) collect(tc *traceContext) {
 	// 发送详情
-	if tc.sampleStrategy == SampleStrategySampled {
+	if tc.sampleStrategy == SampleStrategySampled || tc.sampleFlags.Sampled() {
 		t.emitLog(tc)
 	}
 }
@@ -441,6 +475,19 @@ func (t *tracer) emitLog(tc *traceContext) {
 				ErrorTags:      errorInfo.ErrorTags,
 			})
 		}
+
+		// set appId/origin in tags
+		tagsStr := span.tagsString
+		span.spanContext.ForeachBaggageItem(func(key, value string) bool {
+			if key == defaultAppIDBaggageKey || key == defaultOriginBaggageKey {
+				if tagsStr == nil {
+					tagsStr = make(map[string]string)
+				}
+				tagsStr[key] = value
+			}
+			return true
+		})
+
 		trace.Spans = append(trace.Spans, &trace_models.Span{
 			SpanType: spanType,
 
@@ -458,7 +505,7 @@ func (t *tracer) emitLog(tc *traceContext) {
 
 			ParamInt:    span.tagsInt64,
 			ParamFloat:  span.tagsFloat64,
-			ParamString: span.tagsString,
+			ParamString: tagsStr,
 
 			Resource: span.serverResource,
 

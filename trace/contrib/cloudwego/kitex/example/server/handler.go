@@ -21,7 +21,7 @@ func (s *HelloImpl) Echo(ctx context.Context, req *api.Request) (resp *api.Respo
 	if req == nil {
 		return
 	}
-	fmt.Printf("incomming msg=%s\n", req.Message)
+	fmt.Printf("incoming msg=%s\n", req.Message)
 
 	resp = &api.Response{}
 
