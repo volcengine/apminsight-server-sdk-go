@@ -1,0 +1,2 @@
+template: apmplus-server-ci
+config: ".golangci4api.yml"
