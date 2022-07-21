@@ -24,6 +24,14 @@ func (sc *spanContext) Sample() (SampleStrategy, int) {
 	return sc.traceContext.sampleStrategy, sc.traceContext.sampleWeight
 }
 
+func (sc *spanContext) SampleFlags() SampleFlags {
+	return sc.traceContext.sampleFlags
+}
+
+func (sc *spanContext) ClientSampled() bool {
+	return sc.traceContext.clientSampled
+}
+
 func (sc *spanContext) ForeachBaggageItem(handler func(k, v string) bool) {
 	sc.baggageLock.Lock()
 	for k, v := range sc.baggage {

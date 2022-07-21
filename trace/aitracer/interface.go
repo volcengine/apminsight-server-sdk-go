@@ -96,10 +96,57 @@ const (
 	SampleStrategySampled
 )
 
+// SampleFlags intersects with other tracing systems, should be explicitly defined.
+type SampleFlags int32
+
+const (
+	SampleFlagsUnknown                SampleFlags = -1 // SampleFlags is determined by SampleStrategy and clientSampled
+	SampleFlagsNotSampled             SampleFlags = 0
+	SampleFlagsClientSampled          SampleFlags = 1
+	SampleFlagsServerSampled          SampleFlags = 2
+	SampleFlagsClientAndServerSampled SampleFlags = 3
+)
+
+func (s SampleFlags) ToString() string {
+	switch s {
+	case SampleFlagsNotSampled:
+		return "0"
+	case SampleFlagsClientSampled:
+		return "1"
+	case SampleFlagsServerSampled:
+		return "2"
+	case SampleFlagsClientAndServerSampled:
+		return "3"
+	default:
+		return "-1"
+	}
+}
+
+func SampleFlagsFromInt32(flag int32) SampleFlags {
+	switch flag {
+	case 0:
+		return SampleFlagsNotSampled
+	case 1:
+		return SampleFlagsClientSampled
+	case 2:
+		return SampleFlagsServerSampled
+	case 3:
+		return SampleFlagsClientAndServerSampled
+	default:
+		return SampleFlagsUnknown
+	}
+}
+
+func (s SampleFlags) Sampled() bool {
+	return s > 0
+}
+
 type SpanContext interface {
 	TraceID() string
 	SpanID() string
 	Sample() (strategy SampleStrategy, weight int)
+	ClientSampled() bool
+	SampleFlags() SampleFlags
 	ForeachBaggageItem(func(string, string) bool)
 }
 

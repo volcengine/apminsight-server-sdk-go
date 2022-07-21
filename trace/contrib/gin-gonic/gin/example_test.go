@@ -5,23 +5,22 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/sirupsen/logrus"
-	ailogrus "github.com/volcengine/apminsight-server-sdk-go/trace/contrib/sirupsen/logrus"
-
 	"github.com/gin-gonic/gin"
+	"github.com/sirupsen/logrus"
 	"github.com/volcengine/apminsight-server-sdk-go/trace/aitracer"
+	ailogrus "github.com/volcengine/apminsight-server-sdk-go/trace/contrib/sirupsen/logrus"
 )
 
 type logger struct{}
 
 func (l *logger) Debug(format string, args ...interface{}) {
-	fmt.Printf("[Debug] format %+v\n", args)
+	fmt.Printf("[Debug]"+format+"\n", args)
 }
 func (l *logger) Info(format string, args ...interface{}) {
-	fmt.Printf("[Info] format %+v\n", args)
+	fmt.Printf("[Info]"+format+"\n", args)
 }
 func (l *logger) Error(format string, args ...interface{}) {
-	fmt.Printf("[Error] format %+v\n", args)
+	fmt.Printf("[Error]"+format+"\n", args)
 }
 
 func Test_example(t *testing.T) {
