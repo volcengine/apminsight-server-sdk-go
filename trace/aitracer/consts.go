@@ -20,24 +20,11 @@ const (
 	LogLevelFatal = "fatal"
 )
 
-// http
+// http field
 const (
 	HttpScheme     = "http.scheme"
 	HttpMethod     = "http.method"
 	HttpHost       = "http.host"
 	HttpPath       = "http.path"
 	HttpStatusCode = "http.status_code"
-)
-
-const (
-	Go = "Go" // equal to runtime_type "Go" in service_register
-)
-
-const (
-	SdkLanguage = "sdk.language" // alias of runtime_type,  values of sdk.language are always equal to runtime_type, but more comprehensible for user
-	SdkVersion  = "sdk.version"
-)
-
-const (
-	GoErrorType = "go.error_type"
 )

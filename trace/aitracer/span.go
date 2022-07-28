@@ -9,6 +9,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/volcengine/apminsight-server-sdk-go/trace/internal"
 )
 
 type spanType int
@@ -134,7 +136,7 @@ func (s *span) Finish() {
 			ErrorKind:              ErrorKindPanic,
 			ErrorMessage:           fmt.Sprint(err),
 			ErrorOccurTimeMilliSec: time.Now().Unix()*1e3 + int64(time.Now().Nanosecond())/1e6,
-			ErrorTags:              map[string]string{GoErrorType: getErrorType(err)},
+			ErrorTags:              map[string]string{internal.GoErrorType: getErrorType(err)},
 		}
 		errorInfo.ErrorStack = getStackTrace()
 		s.errLock.Lock()
@@ -168,7 +170,7 @@ func (s *span) FinishWithOption(opt FinishSpanOption) {
 				ErrorKind:              ErrorKindPanic,
 				ErrorMessage:           fmt.Sprint(err),
 				ErrorOccurTimeMilliSec: time.Now().Unix()*1e3 + int64(time.Now().Nanosecond())/1e6,
-				ErrorTags:              map[string]string{GoErrorType: getErrorType(err)},
+				ErrorTags:              map[string]string{internal.GoErrorType: getErrorType(err)},
 			}
 			errorInfo.ErrorStack = getStackTrace()
 			s.errLock.Lock()
@@ -194,7 +196,7 @@ func (s *span) fillTag() {
 		s.SetTagString("db.slow_query", isSlow)
 	}
 	// must add sdk info to every span. this info is used to handler stack
-	s.SetTagString(SdkLanguage, Go) //todo: add version
+	s.SetTagString(internal.SdkLanguage, internal.Go) //todo: add version
 }
 
 func (s *span) RecordError(err error, opts ...RecordOption) {
@@ -209,7 +211,7 @@ func (s *span) RecordError(err error, opts ...RecordOption) {
 		ErrorKind:              c.ErrorKind,
 		ErrorMessage:           err.Error(),
 		ErrorOccurTimeMilliSec: time.Now().Unix()*1e3 + int64(time.Now().Nanosecond())/1e6,
-		ErrorTags:              map[string]string{GoErrorType: getErrorType(err)},
+		ErrorTags:              map[string]string{internal.GoErrorType: getErrorType(err)},
 	}
 	if c.RecordStack && c.Stack == "" {
 		errorInfo.ErrorStack = getStackTrace()

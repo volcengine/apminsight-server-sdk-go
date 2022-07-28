@@ -9,8 +9,10 @@ require (
 	github.com/cloudwego/kitex v0.3.2
 	github.com/gin-gonic/gin v1.8.1
 	github.com/gogo/protobuf v1.3.2
+	github.com/google/pprof v0.0.0-20220729232143-a41b82acbcb1
 	github.com/google/uuid v1.3.0
 	github.com/sirupsen/logrus v1.8.1
+	github.com/stretchr/testify v1.8.0
 	golang.org/x/sys v0.0.0-20220503163025-988cb79eb6c6 // indirect
 	gorm.io/driver/mysql v1.3.4
 	gorm.io/gorm v1.23.5
