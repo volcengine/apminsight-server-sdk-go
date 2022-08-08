@@ -3,19 +3,63 @@ package gin
 import (
 	"context"
 	"net/http"
+	"strings"
+	"unicode"
 
 	"github.com/gin-gonic/gin"
 	"github.com/volcengine/apminsight-server-sdk-go/trace/aitracer"
 )
 
-func NewMiddleware(tracer aitracer.Tracer) gin.HandlerFunc {
+type Config struct {
+	ignoreRequest  func(c *gin.Context) bool       // request to be ignored when tracing. requests will still be processed by handler but no tracing will be recorded
+	pathNormalizer func(escapedPath string) string // getting resource from path needs to decrease cardinality
+}
+
+type Option func(*Config)
+
+func WithIgnoreRequest(f func(c *gin.Context) bool) Option {
+	return func(cfg *Config) {
+		if f != nil {
+			cfg.ignoreRequest = f
+		}
+	}
+}
+
+func WithPathNormalizer(f func(escapedPath string) string) Option {
+	return func(cfg *Config) {
+		if f != nil {
+			cfg.pathNormalizer = f
+		}
+	}
+}
+
+func newDefaultConfig() *Config {
+	return &Config{
+		pathNormalizer: defaultPathNormalizer,
+	}
+}
+
+func NewMiddleware(tracer aitracer.Tracer, opts ...Option) gin.HandlerFunc {
 	if tracer == nil {
 		panic("tracer is nil")
 	}
 	return func(c *gin.Context) {
-		resourceName := c.FullPath()
-		if resourceName == "" {
-			resourceName = "unknown"
+		cfg := newDefaultConfig()
+		for _, opt := range opts {
+			opt(cfg)
+		}
+
+		// these requests will not be traced
+		if cfg.ignoreRequest != nil && cfg.ignoreRequest(c) {
+			return
+		}
+
+		// when pathNotFound, use path as resourceName
+		resourceName := "unknown"
+		if c.FullPath() != "" {
+			resourceName = c.FullPath()
+		} else if c.Request != nil && c.Request.URL != nil && c.Request.URL.Path != "" {
+			resourceName = cfg.pathNormalizer(c.Request.URL.Path) // pathNormalizer is never nil
 		}
 
 		chainSpanContext, _ := tracer.Extract(aitracer.HTTPHeaders, aitracer.HTTPHeadersCarrier(c.Request.Header))
@@ -40,9 +84,11 @@ func NewMiddleware(tracer aitracer.Tracer) gin.HandlerFunc {
 			if isPanic {
 				status = http.StatusInternalServerError //trace middle is executed before gin.defaultHandleRecovery
 			}
+			// set statusCode. statusCode will display on custom filters
 			span.SetTag(aitracer.HttpStatusCode, status)
-			if status != http.StatusOK {
-				span.SetStatus(int64(status))
+			// distinguish status and statusCode. status is always 0 or 1, and 1 indicates error
+			if status >= http.StatusBadRequest {
+				span.SetStatus(1)
 			}
 		}()
 
@@ -66,4 +112,86 @@ func NewGinContextAdapter() func(context.Context) context.Context {
 		}
 		return ctx
 	}
+}
+
+//defaultPathNormalizer aggregates path to patterns
+/*
+1. replace all digits
+	/ 1 -> /?
+	/ 11 -> /?
+2. replace segments with mixed-characters
+	"/a1/v2" ->  "/?/v2"
+	"/ABC/av-1/b_2/c.3/d4d/v5f/v699/7"  -> "/ABC/?/?/?/?/?/?/?"
+*/
+func defaultPathNormalizer(escapedPath string) string {
+	if len(escapedPath) == 0 {
+		return "/"
+	}
+
+	findSplitters := func(escapedPath string) []int {
+		positions := make([]int, 0)
+		for idx := range escapedPath {
+			if escapedPath[idx] == '/' {
+				positions = append(positions, idx)
+			}
+		}
+		if escapedPath[len(escapedPath)-1] != '/' {
+			positions = append(positions, len(escapedPath))
+		}
+		return positions
+	}
+
+	hasNumber := func(escapedPath string) bool {
+		hasNumeric := false
+		for idx := range escapedPath {
+			hasNumeric = unicode.IsDigit(rune(escapedPath[idx]))
+			if hasNumeric {
+				break
+			}
+		}
+		return hasNumeric
+	}
+
+	splitPositions := findSplitters(escapedPath)
+
+	sb := strings.Builder{}
+	start := 0
+	for _, end := range splitPositions {
+		if start < end {
+			sb.WriteRune('/')
+			segLen := end - start
+			if segLen > 1 && segLen <= 3 {
+				if escapedPath[start] == 'v' || escapedPath[start] == 'V' { // reserve version identifiers, v1 v2, etc
+					isVersionNum := true
+					for j := start + 1; j < end; j++ {
+						isVersionNum = isVersionNum && unicode.IsDigit(rune(escapedPath[j]))
+					}
+					if isVersionNum || !hasNumber(escapedPath[start:end]) {
+						sb.WriteString(escapedPath[start:end])
+					} else {
+						sb.WriteRune('?')
+					}
+				} else { // abc jk1
+					if hasNumber(escapedPath[start:end]) {
+						sb.WriteRune('?')
+					} else {
+						sb.WriteString(escapedPath[start:end])
+					}
+				}
+			} else if segLen > 3 && segLen <= 24 { // trans mixed to ?
+				if hasNumber(escapedPath[start:end]) {
+					sb.WriteRune('?')
+				} else {
+					sb.WriteString(escapedPath[start:end])
+				}
+			} else { //len is greater than 24
+				sb.WriteRune('?')
+			}
+		}
+		start = end + 1
+	}
+	if sb.Len() == 0 {
+		return "/"
+	}
+	return sb.String()
 }
