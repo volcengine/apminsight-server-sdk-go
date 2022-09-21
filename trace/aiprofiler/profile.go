@@ -226,11 +226,13 @@ func deltaProfile(pc ProfileCollector, durationSeconds int64, useCache bool, tar
 		pre, cur *profile.Profile
 		err      error
 	)
-	if useCache && pc.GetPrevious() != nil { // cache
-		pre = pc.GetPrevious()
+	if useCache {
 		defer func() { //closure is necessary
 			pc.SetPrevious(cur) //update pre
 		}()
+	}
+	if useCache && pc.GetPrevious() != nil { // cache
+		pre = pc.GetPrevious()
 	} else { // nocache.  compute delta by  now+durationSeconds - now
 		preRaw, err := collectProfile(pc.Name())
 		if err != nil {
