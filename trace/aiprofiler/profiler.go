@@ -132,26 +132,30 @@ func WithLogger(l logger.Logger) Option {
 // to document https://github.com/DataDog/go-profiler-notes/blob/main/guide/README.md#block-profiler-limitations).
 // For safety defaultBlockRate is set to 100,000,000ns(100ms), meaning block events with duration longer than 100ms will be recorded,
 // while block events with duration of 1ms has a 1% chance to be recorded.
-func WithBlockProfile(rate *int) Option {
+func WithBlockProfile(rate int) Option {
 	return func(config *Config) {
-		if rate != nil {
-			config.blockRate = *rate
-		} else {
-			config.blockRate = defaultBlockRate
-		}
+		config.blockRate = rate
+	}
+}
+
+func WithBlockProfileDefault() Option {
+	return func(config *Config) {
+		config.blockRate = defaultBlockRate
 	}
 }
 
 // WithMutexProfile enables mutexProfile with fraction, which means on average 1/fraction events are reported. see runtime.SetMutexProfileFraction
 // MutexProfile is disabled by default.
 // When using modest fraction (e.g. 100) MutexProfile has little impact on performance.
-func WithMutexProfile(fraction *int) Option {
+func WithMutexProfile(fraction int) Option {
 	return func(config *Config) {
-		if fraction != nil {
-			config.mutexFraction = *fraction
-		} else {
-			config.mutexFraction = defaultDefaultMutexFraction
-		}
+		config.mutexFraction = fraction
+	}
+}
+
+func WithMutexProfileDefault() Option {
+	return func(config *Config) {
+		config.mutexFraction = defaultDefaultMutexFraction
 	}
 }
 
