@@ -1,36 +1,41 @@
 package settings_fetcher
 
 import (
-	"context"
+	"bytes"
 	"fmt"
 	"io/ioutil"
-	"net"
 	"net/http"
+	"strings"
+	"sync"
 	"time"
 
-	"bytes"
-
-	"sync"
-
 	"github.com/volcengine/apminsight-server-sdk-go/trace/aitracer/logger"
-	"github.com/volcengine/apminsight-server-sdk-go/trace/aitracer/settings_fetcher/settings_models"
+	"github.com/volcengine/apminsight-server-sdk-go/trace/internal/agentless_adapter"
+	"github.com/volcengine/apminsight-server-sdk-go/trace/internal/settings_fetcher/settings_models"
+	"github.com/volcengine/apminsight-server-sdk-go/trace/internal/utils"
 )
 
 const (
-	path    = "settings"
-	network = "unix"
+	agentSockPath = "/settings"
+	collectorPath = "/server_collect/settings"
 )
 
 type SettingsFetcherConfig struct {
-	Service  string
-	Logger   Logger
-	Sock     string
+	Service string
+	Logger  logger.Logger
+
+	Sock    string
+	Schema  string
+	Host    string
+	Timeout time.Duration
+
 	Notifier []func(*settings_models.Settings)
 }
 
 type Fetcher struct {
 	service string
 	client  *http.Client
+	url     string
 	logger  logger.Logger
 
 	notifier []func(*settings_models.Settings)
@@ -45,24 +50,31 @@ type Fetcher struct {
 }
 
 func NewSettingsFetcher(config SettingsFetcherConfig) *Fetcher {
-	if config.Sock == "" {
-		panic("sock address is empty")
-	}
 	if config.Logger == nil {
 		config.Logger = &logger.NoopLogger{}
 	}
-	c := http.Client{
-		Transport: &http.Transport{
-			DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
-				dialer := net.Dialer{}
-				return dialer.DialContext(ctx, network, config.Sock)
-			},
-		},
-		Timeout: 100 * time.Millisecond,
+	var (
+		c   *http.Client
+		url string
+	)
+	if config.Sock != "" && config.Host == "" {
+		if config.Timeout <= 0 {
+			config.Timeout = 500 * time.Millisecond
+		}
+		url = utils.URLViaUDS(agentSockPath)
+		c = utils.NewHTTPClientViaUDS(config.Sock, config.Timeout)
+	} else {
+		if config.Timeout <= 0 {
+			config.Timeout = 5 * time.Second
+		}
+		url = fmt.Sprintf("%s://%s/%s", config.Schema, config.Host, strings.TrimPrefix(collectorPath, "/"))
+		c = &http.Client{Timeout: config.Timeout}
 	}
+
 	f := &Fetcher{
 		service:   config.Service,
-		client:    &c,
+		client:    c,
+		url:       url,
 		logger:    config.Logger,
 		notifier:  config.Notifier,
 		closeChan: make(chan struct{}),
@@ -84,7 +96,7 @@ func (f *Fetcher) Start() {
 			case <-t.C:
 				f.refreshSettings()
 			case <-f.closeChan:
-				break
+				return
 			}
 		}
 	}()
@@ -120,14 +132,20 @@ func (f *Fetcher) refreshSettings() {
 }
 
 func (f *Fetcher) getSettings() (settings_models.Settings, error) {
-	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://%s/%s", network, path), nil)
+	req, err := http.NewRequest(http.MethodGet, f.url, nil)
 	if err != nil || req == nil {
 		return settings_models.Settings{}, err
 	}
-	req.Header.Add("service", f.service)
+	req.Header.Add("X-ByteAPM-Service", f.service)
+	req.Header.Add("service", f.service) // for compatibility
+	req.Header.Add(agentless_adapter.AppKey, agentless_adapter.GetAppKey())
 	resp, err := f.client.Do(req)
-	if err != nil {
+	if err != nil || resp == nil {
 		f.logger.Error("[getSettings] http fail. err=%+v", err)
+		return settings_models.Settings{}, err
+	}
+	if resp.StatusCode != http.StatusOK {
+		f.logger.Error("[getSettings] http fail. statusCode=%+v", resp.StatusCode)
 		return settings_models.Settings{}, err
 	}
 
@@ -146,10 +164,4 @@ func (f *Fetcher) getSettings() (settings_models.Settings, error) {
 
 	f.logger.Info("[getSettings] success. settings=%s", settings.String())
 	return settings, nil
-}
-
-type Logger interface {
-	Debug(format string, args ...interface{})
-	Info(format string, args ...interface{})
-	Error(format string, args ...interface{})
 }

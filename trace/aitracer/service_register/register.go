@@ -12,6 +12,7 @@ import (
 
 	"github.com/volcengine/apminsight-server-sdk-go/trace/aitracer/logger"
 	"github.com/volcengine/apminsight-server-sdk-go/trace/aitracer/service_register/register_utils"
+	"github.com/volcengine/apminsight-server-sdk-go/trace/internal"
 )
 
 const (
@@ -105,7 +106,7 @@ func (r *Register) register() {
 	q.Add("start_time", strconv.FormatInt(info.StartTime, 10))
 	q.Add("service", r.service)
 	q.Add("service_type", r.serviceType)
-	q.Add("runtime_type", "Go")
+	q.Add("runtime_type", internal.RuntimeTypeGo)
 	if info.ContainerId != "" {
 		q.Add("container_id", info.ContainerId)
 	}
