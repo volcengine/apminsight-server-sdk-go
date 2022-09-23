@@ -48,6 +48,7 @@ func Test_example(t *testing.T) {
 			//	// your code here.
 			//	return escapedPath
 			//}),
+			WithTagsExtractor(exampleTagsExtractor),
 		}...),
 	)
 
@@ -110,4 +111,12 @@ func exampleIgnoreOptionsRequest(c *gin.Context) bool {
 		return true
 	}
 	return false
+}
+
+func exampleTagsExtractor(c *gin.Context) map[string]string {
+	tags := make(map[string]string)
+	if c.Request != nil {
+		tags["X-LOG-ID"] = c.Request.Header.Get("X-LOG-ID")
+	}
+	return tags
 }
