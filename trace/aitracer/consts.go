@@ -28,3 +28,12 @@ const (
 	HttpPath       = "http.path"
 	HttpStatusCode = "http.status_code"
 )
+
+const (
+	DbStatement = "db.statement"
+)
+
+const (
+	StatusCodeOk    = 0
+	StatusCodeError = 1
+)
