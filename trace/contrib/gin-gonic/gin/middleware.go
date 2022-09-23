@@ -11,8 +11,9 @@ import (
 )
 
 type Config struct {
-	ignoreRequest  func(c *gin.Context) bool       // request to be ignored when tracing. requests will still be processed by handler but no tracing will be recorded
-	pathNormalizer func(escapedPath string) string // getting resource from path needs to decrease cardinality
+	ignoreRequest  func(c *gin.Context) bool              // request to be ignored when tracing. requests will still be processed by handler but no tracing will be recorded
+	pathNormalizer func(escapedPath string) string        // getting resource from path needs to decrease cardinality
+	tagsExtractor  func(c *gin.Context) map[string]string // tags extracted from gin.Context will be set in span tags
 }
 
 type Option func(*Config)
@@ -29,6 +30,14 @@ func WithPathNormalizer(f func(escapedPath string) string) Option {
 	return func(cfg *Config) {
 		if f != nil {
 			cfg.pathNormalizer = f
+		}
+	}
+}
+
+func WithTagsExtractor(f func(c *gin.Context) map[string]string) Option {
+	return func(cfg *Config) {
+		if f != nil {
+			cfg.tagsExtractor = f
 		}
 	}
 }
@@ -73,6 +82,12 @@ func NewMiddleware(tracer aitracer.Tracer, opts ...Option) gin.HandlerFunc {
 			span.SetTag(aitracer.HttpScheme, c.Request.URL.Scheme)
 			span.SetTag(aitracer.HttpHost, c.Request.URL.Host)
 			span.SetTag(aitracer.HttpPath, c.Request.URL.Path)
+		}
+		// set custom tags
+		if cfg.tagsExtractor != nil {
+			for k, v := range cfg.tagsExtractor(c) {
+				span.SetTag(k, v)
+			}
 		}
 
 		// Finish should be called directly by defer
