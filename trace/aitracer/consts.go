@@ -1,13 +1,14 @@
 package aitracer
 
 const (
-	Web   = "web"
-	Http  = "http"
-	RPC   = "rpc"
-	GRPC  = "grpc"
-	MySQL = "mysql"
-	Redis = "redis"
-	Kafka = "kafka"
+	Web     = "web"
+	Http    = "http"
+	RPC     = "rpc"
+	GRPC    = "grpc"
+	MySQL   = "mysql"
+	Redis   = "redis"
+	Kafka   = "kafka"
+	Mongodb = "mongodb"
 )
 
 // log level
@@ -34,6 +35,6 @@ const (
 )
 
 const (
-	StatusCodeOk    = 0
+	StatusCodeOK    = 0
 	StatusCodeError = 1
 )

@@ -21,9 +21,10 @@ func TestExample(t *testing.T) {
 	{
 		// root span
 		span := tracer.StartServerSpan("root")
+
 		ctx := aitracer.ContextWithSpan(context.Background(), span)
 
-		// new redis.Client
+		// new redis.TraceClient
 		redisOpts := &redis.Options{Addr: "127.0.0.1:6379", Password: "", DB: 0}
 		client := redis.NewClient(redisOpts)
 
@@ -53,10 +54,10 @@ func TestExample(t *testing.T) {
 			_, _ = pipeline.Exec()
 		}
 
-		span.Finish()
+		span.Finish() // must finish
 	}
 
-	time.Sleep(1 * time.Second)
+	time.Sleep(1 * time.Second) // wait to print log
 
 }
 

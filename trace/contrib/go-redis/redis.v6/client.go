@@ -7,24 +7,24 @@ import (
 	"github.com/volcengine/apminsight-server-sdk-go/trace/aitracer"
 )
 
-type Client struct {
+type TraceClient struct {
 	tracer aitracer.Tracer
 	*redis.Client
 }
 
-// WrapClient create a wrapped redis.Client with trace
-func WrapClient(tracer aitracer.Tracer, client *redis.Client) *Client {
+// WrapClient create a wrapped redis.TraceClient with trace
+func WrapClient(tracer aitracer.Tracer, client *redis.Client) *TraceClient {
 	if tracer == nil {
 		panic("tracer is nil")
 	}
-	return &Client{
+	return &TraceClient{
 		tracer: tracer,
 		Client: client,
 	}
 }
 
 // WithContext is used to process redisCmd with trace. redisCmd should be executed by c2
-func (c *Client) WithContext(ctx context.Context) *redis.Client {
+func (c *TraceClient) WithContext(ctx context.Context) *redis.Client {
 	c2 := c.Client.WithContext(ctx)
 	c2.WrapProcess(process(ctx, c.tracer, c2.Options()))
 	c2.WrapProcessPipeline(processPipeline(ctx, c.tracer, c2.Options()))
