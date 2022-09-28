@@ -191,6 +191,9 @@ func (t *tracer) Log(ctx context.Context, logData LogData) {
 			logItem.TraceId = sc.TraceID()
 		}
 	}
+	if !shouldEmit(span) {
+		return
+	}
 	logItem.LogLevel = logData.LogLevel
 	logItem.FileName = logData.FileName
 	logItem.FileLine = logData.FileLine
@@ -425,6 +428,9 @@ func (t *tracer) emitTrace(tc *traceContext) {
 	serverSpan := tc.spans[0]
 	if serverSpan.spanType == serverSpanType {
 		serverResource = serverSpan.serverResource
+	}
+	if !shouldEmit(serverSpan) {
+		return
 	}
 	for _, span := range tc.spans {
 		if span == nil {

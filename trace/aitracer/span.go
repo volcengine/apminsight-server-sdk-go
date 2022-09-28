@@ -2,6 +2,7 @@ package aitracer
 
 import (
 	"fmt"
+	"os"
 	"reflect"
 	"runtime"
 	"strconv"
@@ -362,4 +363,32 @@ func getErrorType(err interface{}) string {
 		return t.String()
 	}
 	return fmt.Sprintf("%s.%s", t.PkgPath(), t.Name())
+}
+
+// -----------------------------
+// sdk developers only. used to control trace/log emit
+// by default controlEnable is false, means no control
+const controlKey = "byteapm-tl-emit"
+
+var (
+	once          sync.Once
+	controlEnable bool
+)
+
+func shouldEmit(s Span) bool {
+	once.Do(func() {
+		if os.Getenv("BYTEAPM_TL_EMIT_CONTROL") == "1" {
+			controlEnable = true
+		}
+	})
+	if !controlEnable {
+		return true
+	}
+	if s == nil {
+		return false
+	}
+	if flag := s.BaggageItem(controlKey); flag == "1" {
+		return true
+	}
+	return false
 }
