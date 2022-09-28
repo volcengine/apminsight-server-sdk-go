@@ -406,11 +406,11 @@ func (t *tracer) handleSettingsForDynamicConfig(settings *settings_models.Settin
 func (t *tracer) collect(tc *traceContext) {
 	// 发送详情
 	if tc.sampleStrategy == SampleStrategySampled || tc.sampleFlags.Sampled() {
-		t.emitLog(tc)
+		t.emitTrace(tc)
 	}
 }
 
-func (t *tracer) emitLog(tc *traceContext) {
+func (t *tracer) emitTrace(tc *traceContext) {
 	trace := trace_models.Trace{
 		ServiceType: t.serviceType,
 		Service:     t.service,
@@ -515,5 +515,8 @@ func (t *tracer) emitLog(tc *traceContext) {
 			ErrorInfoList:   errorInfoList,
 		})
 	}
-	t.traceChan <- &trace
+	select {
+	case t.traceChan <- &trace: //non-blocking. otherwise span.Finish could be blocked.
+	default:
+	}
 }
