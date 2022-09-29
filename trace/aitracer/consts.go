@@ -13,12 +13,13 @@ const (
 
 // log level
 const (
-	LogLevelTrace = "trace"
-	LogLevelDebug = "debug"
-	LogLevelInfo  = "info"
-	LogLevelWarn  = "warn"
-	LogLevelError = "error"
-	LogLevelFatal = "fatal"
+	LogLevelTrace  = "trace"
+	LogLevelDebug  = "debug"
+	LogLevelInfo   = "info"
+	LogLevelNotice = "notice"
+	LogLevelWarn   = "warn"
+	LogLevelError  = "error"
+	LogLevelFatal  = "fatal"
 )
 
 // http field
