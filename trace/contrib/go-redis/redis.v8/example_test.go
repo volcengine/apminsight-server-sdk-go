@@ -32,15 +32,20 @@ func TestExample(t *testing.T) {
 	span := tracer.StartServerSpan("root")
 	ctx := aitracer.ContextWithSpan(context.Background(), span)
 
-	// get
-	client.Get(ctx, "key_1")
+	// set
+	res, err := client.Set(ctx, "key_2", "test.v8", time.Second*30).Result()
+	fmt.Printf("set: %+v, %+v\n", res, err)
 
 	// pipe get
 	pipe := client.Pipeline()
-	for _, key := range []string{"foo", "bar"} {
+	for _, key := range []string{"foo", "bar", "key_2"} {
 		pipe.Get(ctx, key)
 	}
-	pipe.Exec(ctx)
+	cmds, _ := pipe.Exec(ctx)
+	for i, c := range cmds {
+		res, err := c.(*redis.StringCmd).Result()
+		fmt.Printf("pipeline result [%d]: res=%+v, err=%+v\n", i, res, err)
+	}
 
 	span.Finish() // must finish
 

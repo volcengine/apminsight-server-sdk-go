@@ -1,10 +1,12 @@
 package aitracer
 
 const (
-	Web     = "web"
-	Http    = "http"
-	RPC     = "rpc"
-	GRPC    = "grpc"
+	Web      = "web"
+	Http     = "http"
+	RPC      = "rpc"
+	GRPC     = "grpc"
+	Consumer = "consumer"
+
 	MySQL   = "mysql"
 	Redis   = "redis"
 	Kafka   = "kafka"

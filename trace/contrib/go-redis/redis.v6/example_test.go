@@ -31,27 +31,25 @@ func TestExample(t *testing.T) {
 		// wrap redis client
 		wrappedClient := WrapClient(tracer, client)
 
-		// query WithContext
+		// query with context. child of root
 		{
-			// get/set are child of root span
-			wrappedClient.WithContext(ctx).Get("child_root")
-			wrappedClient.WithContext(ctx).Set("child_root_2", "test", 0)
+			res, err := wrappedClient.WithContext(ctx).Set("key_1", "test.v6", 0).Result()
+			fmt.Printf("set: %+v, %+v\n", res, err)
+			res, err = wrappedClient.WithContext(ctx).Get("key_1").Result()
+			fmt.Printf("get: %+v, %+v\n", res, err)
 		}
 
+		// pipeline. child of root
 		{
-			// doSomething is child of root span
-			doSomethingSpan, ctxWithSpan := tracer.StartSpanFromContext(ctx, "doSomething")
-			// child of doSomething
-			wrappedClient.WithContext(ctxWithSpan).Get("child_doSomething")
-			doSomethingSpan.Finish()
-		}
-		{
-			// pipeline. child fo root span
 			pipeline := wrappedClient.WithContext(ctx).Pipeline()
-			for _, key := range []string{"foo", "bar"} {
+			for _, key := range []string{"foo", "bar", "key_1"} {
 				pipeline.Get(key)
 			}
-			_, _ = pipeline.Exec()
+			cmds, _ := pipeline.Exec()
+			for i, c := range cmds {
+				res, err := c.(*redis.StringCmd).Result()
+				fmt.Printf("pipeline result [%d]: res=%+v, err=%+v\n", i, res, err)
+			}
 		}
 
 		span.Finish() // must finish

@@ -49,7 +49,8 @@ type span struct {
 
 	spanContext spanContext
 
-	finished int64
+	finished  int64
+	collected int64
 }
 
 type ErrorInfo struct {

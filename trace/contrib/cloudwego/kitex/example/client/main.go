@@ -9,7 +9,7 @@ import (
 	"github.com/cloudwego/kitex/client"
 	"github.com/cloudwego/kitex/client/callopt"
 	"github.com/volcengine/apminsight-server-sdk-go/trace/aitracer"
-	"github.com/volcengine/apminsight-server-sdk-go/trace/contrib/cloudwego/kitex"
+	tracekitex "github.com/volcengine/apminsight-server-sdk-go/trace/contrib/cloudwego/kitex"
 	"github.com/volcengine/apminsight-server-sdk-go/trace/contrib/cloudwego/kitex/example/server/kitex_gen/api"
 	"github.com/volcengine/apminsight-server-sdk-go/trace/contrib/cloudwego/kitex/example/server/kitex_gen/api/hello"
 )
@@ -36,7 +36,7 @@ func main() {
 	{
 		c, err := hello.NewClient("example_service", //set destService. important
 			client.WithHostPorts("0.0.0.0:8888"),
-			client.WithSuite(kitex.NewClientSuite(tracer)))
+			client.WithSuite(tracekitex.NewClientSuite(tracer)))
 		if err != nil {
 			log.Fatal(err)
 		}

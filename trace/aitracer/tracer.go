@@ -91,7 +91,7 @@ func NewTracer(serviceType, service string, opts ...TracerOption) Tracer {
 			Sock:         config.LogSenderSock,
 			WorkerNumber: config.LogSenderNumber,
 			ChanSize:     config.LogSenderChanSize,
-			Logger:       config.Logger,
+			Debug:        config.LogSenderDebug,
 		}
 		t.logCollector = log_collector.NewLogCollector(config)
 	}
@@ -435,6 +435,10 @@ func (t *tracer) emitTrace(tc *traceContext) {
 	for _, span := range tc.spans {
 		if span == nil {
 			continue
+		}
+		if !atomic.CompareAndSwapInt64(&span.collected, 0, 1) {
+			continue // for async spans, some spans may have finished and send out before child spans are generated, but they share the same traceContext
+			// be aware this cloud lead to one single tracing inside a service send multiple trace data, be careful during backend aggregate process.
 		}
 		if span.serverResource == "" {
 			span.serverResource = serverResource

@@ -24,6 +24,9 @@ type monitor struct {
 }
 
 func NewMonitor(tracer aitracer.Tracer) *event.CommandMonitor {
+	if tracer == nil {
+		panic("tracer is nil")
+	}
 	m := &monitor{
 		tracer: tracer,
 		spans:  make(map[spanKey]aitracer.Span),
@@ -42,7 +45,7 @@ func (m *monitor) Started(ctx context.Context, evt *event.CommandStartedEvent) {
 	callService := fmt.Sprintf("mongodb:%s/%s", getAddr(evt), evt.DatabaseName)
 	span, _ := m.tracer.StartClientSpanFromContext(ctx, "mongodb.command",
 		aitracer.ClientResourceAs(aitracer.Mongodb, callService, evt.CommandName))
-	span.SetTagString(aitracer.DbStatement, toJsonString(evt.Command))
+	span.SetTagString(aitracer.DbStatement, toJSONString(evt.Command))
 	span.SetTagString("mongodb.database", evt.DatabaseName)
 
 	collection := tryGetCollection(evt)
@@ -109,7 +112,7 @@ func tryGetCollection(evt *event.CommandStartedEvent) string {
 	return ""
 }
 
-func toJsonString(command bson.Raw) string {
+func toJSONString(command bson.Raw) string {
 	b, _ := bson.MarshalExtJSON(command, false, false)
 	return string(b)
 }

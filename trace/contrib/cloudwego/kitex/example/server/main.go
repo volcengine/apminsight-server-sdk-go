@@ -6,7 +6,7 @@ import (
 	"github.com/cloudwego/kitex/pkg/klog"
 	"github.com/cloudwego/kitex/server"
 	"github.com/volcengine/apminsight-server-sdk-go/trace/aitracer"
-	"github.com/volcengine/apminsight-server-sdk-go/trace/contrib/cloudwego/kitex"
+	tracekitex "github.com/volcengine/apminsight-server-sdk-go/trace/contrib/cloudwego/kitex"
 	api "github.com/volcengine/apminsight-server-sdk-go/trace/contrib/cloudwego/kitex/example/server/kitex_gen/api/hello"
 )
 
@@ -27,7 +27,7 @@ func main() {
 	aitracer.SetGlobalTracer(tracer)
 
 	klog.SetLevel(klog.LevelDebug)
-	svr := api.NewServer(new(HelloImpl), server.WithSuite(kitex.NewServerSuite(tracer)))
+	svr := api.NewServer(new(HelloImpl), server.WithSuite(tracekitex.NewServerSuite(tracer)))
 
 	err := svr.Run()
 
