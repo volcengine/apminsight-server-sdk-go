@@ -1,6 +1,6 @@
 module github.com/volcengine/apminsight-server-sdk-go
 
-go 1.15
+go 1.16
 
 require (
 	github.com/Shopify/sarama v1.34.1
