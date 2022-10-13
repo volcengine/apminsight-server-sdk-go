@@ -2,4 +2,5 @@
 
 * Metrics SDK
 * Trace SDK
+* Profile SDK
 
