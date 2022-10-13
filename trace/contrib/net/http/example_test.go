@@ -72,7 +72,10 @@ func Test_example(t *testing.T) {
 		// MUST: if ctx not passed in, span http_call will not be related to trace
 		req = req.WithContext(ctx)
 
-		_, _ = hc.Do(req)
+		res, _ := hc.Do(req)
+		if res != nil {
+			defer res.Body.Close()
+		}
 	}
 
 }

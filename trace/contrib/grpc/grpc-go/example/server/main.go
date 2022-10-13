@@ -88,7 +88,10 @@ func CallRemote(ctx context.Context) {
 	req.Header.Add("X-client-service", "downstream_service_name")
 	// inject context and call
 	req = req.WithContext(ctx)
-	_, _ = hc.Do(req)
+	res, _ := hc.Do(req)
+	if res != nil {
+		defer res.Body.Close()
+	}
 }
 
 type logger struct{}
