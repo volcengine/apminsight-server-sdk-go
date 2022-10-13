@@ -1,13 +1,11 @@
 package http
 
 import (
-	"fmt"
-	"testing"
-
-	"net/http"
-	"time"
-
 	"context"
+	"fmt"
+	"net/http"
+	"testing"
+	"time"
 
 	"github.com/volcengine/apminsight-server-sdk-go/trace/aitracer"
 )
@@ -70,8 +68,14 @@ func Test_example(t *testing.T) {
 
 		req, _ := http.NewRequest(http.MethodGet, "http://127.0.0.1", nil)
 		req.Header.Add("X-client-service", "my_service")
+
+		// MUST: if ctx not passed in, span http_call will not be related to trace
 		req = req.WithContext(ctx)
-		_, _ = hc.Do(req)
+
+		res, _ := hc.Do(req)
+		if res != nil {
+			defer res.Body.Close()
+		}
 	}
 
 }

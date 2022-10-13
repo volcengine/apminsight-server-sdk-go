@@ -49,7 +49,8 @@ type span struct {
 
 	spanContext spanContext
 
-	finished int64
+	finished  int64
+	collected int64
 }
 
 type ErrorInfo struct {
@@ -130,7 +131,9 @@ func (s *span) Finish() {
 	s.duration = s.finishTime.Sub(s.startTime)
 
 	s.fillTag()
-	//recordPanic
+	//recordPanic.
+	//if panic cause process crash directly, metric/trace may not have time to send out.
+	//this will be resolved by globalPanicCapture
 	if err := recover(); err != nil {
 		defer panic(err)
 		errorInfo := ErrorInfo{

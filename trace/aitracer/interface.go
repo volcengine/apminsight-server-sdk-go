@@ -182,7 +182,9 @@ type TracerConfig struct {
 	EnableMetric bool
 	MetricSock   string
 
-	EnableLogSender   bool
+	EnableLogSender bool
+	LogSenderDebug  bool // for safety, can not use incoming logger.Logger in LogCollector
+
 	LogSenderSock     string
 	LogSenderNumber   int
 	LogSenderChanSize int
@@ -225,9 +227,6 @@ func WithSenderNumber(senderNumber int) TracerOption {
 	}
 }
 
-// WithLogger set logger for sdk.
-// DO NOT USE logrus as logger if you have hooked logrus to tracer
-// this will cause recursive call on logrus: logrus.Info -> trace.Logger.Info -> logrus.Info
 func WithLogger(logger logger.Logger) TracerOption {
 	return func(config *TracerConfig) {
 		config.Logger = logger
@@ -249,6 +248,12 @@ func WithMetricsAddress(metricAddress string) TracerOption {
 func WithLogSender(enable bool) TracerOption {
 	return func(config *TracerConfig) {
 		config.EnableLogSender = enable
+	}
+}
+
+func WithLogSenderDebug(enable bool) TracerOption {
+	return func(config *TracerConfig) {
+		config.LogSenderDebug = enable
 	}
 }
 

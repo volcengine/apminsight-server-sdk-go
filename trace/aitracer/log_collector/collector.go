@@ -2,12 +2,12 @@ package log_collector
 
 import (
 	"encoding/binary"
+	"fmt"
 	"net"
 	"sync"
 	"time"
 
 	"github.com/volcengine/apminsight-server-sdk-go/trace/aitracer/log_collector/log_models"
-	"github.com/volcengine/apminsight-server-sdk-go/trace/aitracer/logger"
 )
 
 const (
@@ -15,7 +15,9 @@ const (
 )
 
 type LogCollector struct {
-	logger logger.Logger
+	// logger logger.Logger   // setting logger in LogCollector is dangerous. disable for safety
+	// For example, if you have hooked logrus with tracer and set logrus as logger,
+	// recursive call will cause: logrus.Info -> trace.Logger.Info -> logrus.Info
 
 	sock string
 
@@ -23,20 +25,18 @@ type LogCollector struct {
 
 	in chan *log_models.Log
 	wg sync.WaitGroup
+
+	debug bool
 }
 
 type LogCollectorConfig struct {
 	Sock         string
 	ChanSize     int
 	WorkerNumber int
-	Logger       logger.Logger
+	Debug        bool
 }
 
 func NewLogCollector(config LogCollectorConfig) *LogCollector {
-	l := config.Logger
-	if l == nil {
-		l = &logger.NoopLogger{}
-	}
 	if config.Sock == "" {
 		panic("socket address is empty")
 	}
@@ -47,10 +47,10 @@ func NewLogCollector(config LogCollectorConfig) *LogCollector {
 		panic("channel size must be positive")
 	}
 	return &LogCollector{
-		logger:       l,
 		sock:         config.Sock,
 		workerNumber: config.WorkerNumber,
 		in:           make(chan *log_models.Log, config.ChanSize),
+		debug:        config.Debug,
 	}
 }
 
@@ -81,8 +81,7 @@ func (s *LogCollector) Stop() {
 
 func (s *LogCollector) sendLoop() {
 	sw := &senderWorker{
-		sock:   s.sock,
-		logger: s.logger,
+		sock: s.sock,
 	}
 	defer func() {
 		sw.closeConn()
@@ -109,10 +108,12 @@ func (s *LogCollector) sendLoop() {
 			if item == nil {
 				continue
 			}
-			s.logger.Debug("send logs %+v", item)
+			if s.debug {
+				fmt.Printf("[Debug] send logs %+v\n", item)
+			}
 			data, err := item.Marshal()
 			if err != nil {
-				s.logger.Error("send log marshal err %v", err)
+				fmt.Printf("[Error] send log marshal err %v\n", err)
 				continue
 			}
 			sizePrefixData := make([]byte, 4)
@@ -135,9 +136,8 @@ func (s *LogCollector) sendLoop() {
 }
 
 type senderWorker struct {
-	sock   string
-	logger logger.Logger
-	conn   net.Conn
+	sock string
+	conn net.Conn
 }
 
 func (s *senderWorker) closeConn() {
@@ -150,8 +150,6 @@ func (s *senderWorker) batchSend(batchLog []byte) {
 	if batchLog == nil {
 		return
 	}
-	s.logger.Debug("send batch logs %d", len(batchLog))
-
 	if s.conn == nil {
 		s.conn = s.newConn()
 		if s.conn == nil {
@@ -160,7 +158,7 @@ func (s *senderWorker) batchSend(batchLog []byte) {
 	}
 	_, err := s.conn.Write(batchLog)
 	if err != nil {
-		s.logger.Error("send batch logs err %v", err)
+		fmt.Printf("[Error] send batch logs err %v\n", err)
 		s.conn.Close()
 		s.conn = nil
 	}
@@ -169,7 +167,7 @@ func (s *senderWorker) batchSend(batchLog []byte) {
 func (s *senderWorker) newConn() net.Conn {
 	conn, err := net.Dial("unixgram", s.sock)
 	if err != nil {
-		s.logger.Error("create conn %s err %v", s.sock, err)
+		fmt.Printf("[Error] create conn %s err %v\n", s.sock, err)
 		return nil
 	}
 	return conn
