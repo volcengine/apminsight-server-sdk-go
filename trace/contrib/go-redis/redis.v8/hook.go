@@ -68,6 +68,7 @@ func (th *TracingHook) BeforeProcessPipeline(ctx context.Context, cmds []redis.C
 	summary, cmdsString := rediscmd.CmdsString(cmds)
 	span, ctxWithSpan := th.tracer.StartClientSpanFromContext(ctx, "redis.pipeline",
 		aitracer.ClientResourceAs(aitracer.Redis, th.getCallService(), "pipeline"))
+	span.SetTagString("peer.type", "redis")
 	span.SetTagString(aitracer.DbStatement, cmdsString)
 	span.SetTagString("db.redis.pipe.summary", summary)
 	span.SetTagString("db.redis.pipe.cmds_num", strconv.Itoa(len(cmds)))

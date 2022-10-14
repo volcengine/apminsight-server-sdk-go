@@ -66,8 +66,9 @@ func processPipeline(ctx context.Context, tracer aitracer.Tracer, opts *redis.Op
 			defer span.Finish()
 
 			summary, cmdsString := CmdsString(cmds)
-			span.SetTag(aitracer.DbStatement, cmdsString)
-			span.SetTag("db.redis.pipe.summary", summary)
+			span.SetTagString("peer.type", "redis")
+			span.SetTagString(aitracer.DbStatement, cmdsString)
+			span.SetTagString("db.redis.pipe.summary", summary)
 			span.SetTag("db.redis.pipe.cmds_num", len(cmds))
 
 			err := oldProcess(cmds)

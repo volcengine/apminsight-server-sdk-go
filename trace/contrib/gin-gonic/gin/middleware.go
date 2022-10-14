@@ -103,7 +103,10 @@ func NewMiddleware(tracer aitracer.Tracer, opts ...Option) gin.HandlerFunc {
 			span.SetTag(aitracer.HttpStatusCode, status)
 			// distinguish status and statusCode. status is always 0 or 1, and 1 indicates error
 			if status >= http.StatusBadRequest {
-				span.SetStatus(1)
+				span.SetStatus(aitracer.StatusCodeError)
+			}
+			for _, err := range c.Errors {
+				span.RecordError(err, aitracer.WithErrorKind(aitracer.ErrorKindBusinessError))
 			}
 		}()
 

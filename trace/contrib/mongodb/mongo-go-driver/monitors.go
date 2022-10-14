@@ -45,6 +45,7 @@ func (m *monitor) Started(ctx context.Context, evt *event.CommandStartedEvent) {
 	callService := fmt.Sprintf("mongodb:%s/%s", getAddr(evt), evt.DatabaseName)
 	span, _ := m.tracer.StartClientSpanFromContext(ctx, "mongodb.command",
 		aitracer.ClientResourceAs(aitracer.Mongodb, callService, evt.CommandName))
+	span.SetTagString("peer.type", "mongodb")
 	span.SetTagString(aitracer.DbStatement, toJSONString(evt.Command))
 	span.SetTagString("mongodb.database", evt.DatabaseName)
 
