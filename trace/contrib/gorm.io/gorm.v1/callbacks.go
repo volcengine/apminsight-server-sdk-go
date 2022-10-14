@@ -61,7 +61,7 @@ func WrapDB(dbType, endpoint, dbName string, db *gorm.DB, tracer aitracer.Tracer
 	if err != nil {
 		return nil, err
 	}
-	err = cb.Raw().Before("gorm:query").Register("ai-tracer:before_raw", newBefore(dbType, endpoint, dbName, "gorm:raw", tracer))
+	err = cb.Raw().Before("gorm:raw").Register("ai-tracer:before_raw", newBefore(dbType, endpoint, dbName, "gorm:raw", tracer))
 	if err != nil {
 		return nil, err
 	}
