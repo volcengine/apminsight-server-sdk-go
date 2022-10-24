@@ -60,6 +60,12 @@ func (s *server) SayHello(ctx context.Context, data *hello.HelloRequest) (*hello
 
 	CallRemote(ctx)
 
+	// ok
+	return &hello.HelloReply{
+		Message: "Hello " + data.GetName(),
+	}, nil
+
+	// error
 	return &hello.HelloReply{
 		Message: "Hello " + data.GetName(),
 	}, status.Errorf(codes.Internal, "test")

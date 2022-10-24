@@ -15,6 +15,7 @@ import (
 
 type Config struct {
 	targetServiceType string
+	baggageSetter     func(ctx context.Context) map[string]string // get key-value pair from ctx and set in span baggage
 }
 
 func newDefaultConfig() *Config {
@@ -31,10 +32,17 @@ func WithTargetServiceType(tst string) Option {
 	}
 }
 
+func WithBaggageSetter(f func(ctx context.Context) map[string]string) Option {
+	return func(cfg *Config) {
+		if f != nil {
+			cfg.baggageSetter = f
+		}
+	}
+}
+
 func NewUnaryServerInterceptor(tracer aitracer.Tracer, opts ...Option) grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req interface{},
 		info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
-		// reserved
 		cfg := newDefaultConfig()
 		for _, opt := range opts {
 			opt(cfg)
@@ -50,6 +58,12 @@ func NewUnaryServerInterceptor(tracer aitracer.Tracer, opts ...Option) grpc.Unar
 		// start server span from parentSpanContext
 		span := tracer.StartServerSpan("grpc.called", aitracer.ChildOf(parentSpanContext), aitracer.ServerResourceAs(info.FullMethod))
 		defer span.Finish()
+
+		if cfg.baggageSetter != nil {
+			for k, v := range cfg.baggageSetter(ctx) {
+				span.SetBaggageItem(k, v)
+			}
+		}
 
 		// set span in context
 		ctxWithSpan := aitracer.ContextWithSpan(ctx, span)
