@@ -86,6 +86,14 @@ func (s *span) emitMetric() {
 		tags["status"] = strconv.FormatInt(s.status, 10)
 		tags["instance_id"] = t.instanceId
 
+		// add extra tag. server_span may have an upstream service
+		if fromServiceType, ok := s.GetTagString("from_service_type"); ok {
+			tags["from_service_type"] = fromServiceType
+		}
+		if fromService, ok := s.GetTagString("from_service"); ok {
+			tags["from_service"] = fromService
+		}
+
 		_ = mc.EmitCounter(aiCalledThroughput, 1, tags)
 		_ = mc.EmitTimer(aiCalledLatency, float64(s.duration.Microseconds()), tags)
 	} else {
@@ -100,8 +108,7 @@ func (s *span) emitMetric() {
 		tags["call_resource"] = s.clientResource
 
 		// add extra tag
-		slowQuery, ok := s.GetTagString("db.slow_query")
-		if ok {
+		if slowQuery, ok := s.GetTagString("db.slow_query"); ok {
 			tags["db.slow_query"] = slowQuery
 		}
 

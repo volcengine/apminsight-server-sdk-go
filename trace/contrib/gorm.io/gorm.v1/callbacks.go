@@ -2,14 +2,10 @@ package gorm_v1
 
 import (
 	"context"
-
-	"time"
-
-	"strings"
-
 	"fmt"
-
 	"strconv"
+	"strings"
+	"time"
 
 	"github.com/volcengine/apminsight-server-sdk-go/trace/aitracer"
 	"gorm.io/gorm"
@@ -145,7 +141,8 @@ func newAfterFunc() func(db *gorm.DB) {
 			sb.WriteString("]")
 			span.SetTagString("db.sql.parameters", sb.String())
 		}
-		if db.Error != nil {
+		if db.Error != nil && db.Error != gorm.ErrRecordNotFound {
+			span.RecordError(db.Error, aitracer.WithErrorKind(aitracer.ErrorKindDbError))
 			span.FinishWithOption(aitracer.FinishSpanOption{
 				FinishTime: time.Now(),
 				Status:     1,

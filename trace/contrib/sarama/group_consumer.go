@@ -9,11 +9,17 @@ import (
 
 // WrapHandler wrap func(ctx context.Context, data []byte) for sarama.ConsumerGroupHandler in order to extract tracing info from msg and generate serverSpan
 // handler take sarama.ConsumerMessage.Value as param, and ctx contains serverSpan
-func WrapHandler(handler func(ctx context.Context, data []byte), tracer aitracer.Tracer) func(msg *sarama.ConsumerMessage) {
+func WrapHandler(handler func(ctx context.Context, data []byte), tracer aitracer.Tracer, opts ...Option) func(msg *sarama.ConsumerMessage) {
 	return func(msg *sarama.ConsumerMessage) {
 		if tracer == nil {
 			panic("tracer is nil")
 		}
+
+		cfg := newDefaultConfig()
+		for _, opt := range opts {
+			opt(cfg)
+		}
+
 		// get tracing from msg header
 		m := make(map[string][]string)
 		for _, h := range msg.Headers {
@@ -29,6 +35,15 @@ func WrapHandler(handler func(ctx context.Context, data []byte), tracer aitracer
 
 		span.SetTagString("mq.type", "kafka")
 		span.SetTagString("mq.topic", msg.Topic)
+
+		// extra tag
+		for k, v := range cfg.additionalTags {
+			span.SetTagString(k, v)
+		}
+
+		// in this case, we regard mq as consumer's upstream service
+		span.SetTagString("from_service_type", "kafka")
+		span.SetTagString("from_service", msg.Topic)
 
 		// set span in context
 		ctxWithSpan := aitracer.ContextWithSpan(context.Background(), span)

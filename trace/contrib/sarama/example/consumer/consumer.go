@@ -23,7 +23,7 @@ func main() {
 	aitracer.SetGlobalTracer(tracer)
 
 	// wrap handler
-	wrapperHandler := tracesamara.WrapHandler(handler, tracer)
+	wrapperHandler := tracesamara.WrapHandler(handler, tracer, tracesamara.WithAdditionalTags(map[string]string{"broker": "xxx"}))
 
 	// new consumerGroupHandler
 	consumerGroupHandler := NewConsumerGroupHandler(wrapperHandler)

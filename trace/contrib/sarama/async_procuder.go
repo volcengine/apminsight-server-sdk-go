@@ -7,6 +7,22 @@ import (
 	"github.com/volcengine/apminsight-server-sdk-go/trace/aitracer"
 )
 
+type Config struct {
+	additionalTags map[string]string
+}
+
+func newDefaultConfig() *Config {
+	return &Config{}
+}
+
+type Option func(*Config)
+
+func WithAdditionalTags(tags map[string]string) Option {
+	return func(cfg *Config) {
+		cfg.additionalTags = tags
+	}
+}
+
 type asyncProducer struct {
 	sarama.AsyncProducer
 
@@ -23,12 +39,16 @@ type asyncProducer struct {
 // WrapProducer wrap inner sarama.AsyncProducer to generate client span.
 // due to sarama.AsyncProducer.Input() return a chan, we can not instrument Input method
 // so a outerInput chan is provided, when put msg into outerInput chan, we can intercept and trace it
-func WrapProducer(cfg *sarama.Config, p sarama.AsyncProducer, tracer aitracer.Tracer) sarama.AsyncProducer {
+func WrapProducer(cfg *sarama.Config, p sarama.AsyncProducer, tracer aitracer.Tracer, opts ...Option) sarama.AsyncProducer {
 	if cfg == nil {
 		panic("sarama config is nil")
 	}
 	if tracer == nil {
 		panic("tracer is nil")
+	}
+	optCfg := newDefaultConfig()
+	for _, opt := range opts {
+		opt(optCfg)
 	}
 	wrappedProducer := asyncProducer{
 		AsyncProducer:  p,
@@ -69,6 +89,11 @@ func WrapProducer(cfg *sarama.Config, p sarama.AsyncProducer, tracer aitracer.Tr
 				clientSpan.SetTagString("mq.type", "kafka")
 				clientSpan.SetTagString("mq.topic", msg.Topic)
 				clientSpan.SetTagString("kafka.version", cfg.Version.String())
+
+				// extra tag
+				for k, v := range optCfg.additionalTags {
+					clientSpan.SetTagString(k, v)
+				}
 
 				wrappedMeta.ctx = ctxWithSpan // update ctxWithSpan in wrappedMeta
 				msg.Metadata = wrappedMeta    // set wrappedMeta into metadata, so we can finish it when return

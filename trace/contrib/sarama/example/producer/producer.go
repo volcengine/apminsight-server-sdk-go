@@ -38,7 +38,7 @@ func main() {
 		}
 
 		// warp with trace
-		wrappedProducer := tracesamara.WrapProducer(kafkaConf, producer, tracer)
+		wrappedProducer := tracesamara.WrapProducer(kafkaConf, producer, tracer, tracesamara.WithAdditionalTags(map[string]string{"broker": "xxx"}))
 
 		// consume successed and errors
 		{
