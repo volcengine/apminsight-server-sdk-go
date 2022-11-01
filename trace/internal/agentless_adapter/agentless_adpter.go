@@ -8,11 +8,13 @@ import (
 const AppKey = "X-ByteAPM-AppKey"
 
 var (
-	appKey   string
-	hostname string
+	appKey        string
+	hostname      string
+	runtimeBearer string
 
-	onceAppKey   sync.Once
-	onceHostname sync.Once
+	onceAppKey        sync.Once
+	onceHostname      sync.Once
+	onceRuntimeBearer sync.Once
 )
 
 func GetAppKey() string {
@@ -30,6 +32,13 @@ func GetHostname() string {
 				hostname = h
 			}
 		}
+	})
+	return hostname
+}
+
+func GetRuntimeBearer() string {
+	onceRuntimeBearer.Do(func() {
+		hostname = os.Getenv("MY_RUNTIME_BEARER") // set it via kubernetes env
 	})
 	return hostname
 }

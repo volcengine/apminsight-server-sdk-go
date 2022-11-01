@@ -13,9 +13,10 @@ import (
 	"github.com/volcengine/apminsight-server-sdk-go/trace/aiprofiler/res_monitor"
 	"github.com/volcengine/apminsight-server-sdk-go/trace/aiprofiler/sender"
 	"github.com/volcengine/apminsight-server-sdk-go/trace/aitracer/logger"
-	"github.com/volcengine/apminsight-server-sdk-go/trace/aitracer/service_register/register_utils"
 	"github.com/volcengine/apminsight-server-sdk-go/trace/internal"
 	"github.com/volcengine/apminsight-server-sdk-go/trace/internal/agentless_adapter"
+	"github.com/volcengine/apminsight-server-sdk-go/trace/internal/service_register"
+	"github.com/volcengine/apminsight-server-sdk-go/trace/internal/service_register/register_utils"
 )
 
 const (
@@ -37,6 +38,10 @@ type Config struct {
 	SenderCfg   sender.Config
 	SettingsCfg manager.SettingAddrConfig
 
+	// service register
+	enableServiceRegister bool
+	ServiceRegisterCfg    service_register.Config
+
 	// pprof setting
 	mutexFraction int
 	blockRate     int
@@ -52,6 +57,8 @@ type Profiler struct {
 	outChan  chan *profile_models.ProfileInfo
 
 	resMonitor *res_monitor.Monitor
+
+	serviceRegister *service_register.Register
 
 	manager *manager.Manager
 
@@ -70,6 +77,11 @@ func newDefaultConfig() *Config {
 	return &Config{
 		TaskChanSize: defaultQueuedTaskChanSize,
 		OutChanSize:  defaultOutChanSize,
+		ServiceRegisterCfg: service_register.Config{
+			Sock:     defaultSockAddr,
+			Interval: 30 * time.Second,
+			Timeout:  500 * time.Millisecond,
+		},
 		SenderCfg: sender.Config{
 			Sock:            defaultSockAddr,
 			Timeout:         500 * time.Millisecond,
@@ -86,6 +98,11 @@ func newDefaultConfig() *Config {
 // which is useful where server-agent is not installed
 func WithHTTPEndPoint(schema, host string, timeout time.Duration) Option {
 	return func(cfg *Config) {
+		// service register endpoint
+		cfg.ServiceRegisterCfg.Schema = schema
+		cfg.ServiceRegisterCfg.Host = host
+		cfg.ServiceRegisterCfg.Timeout = timeout
+
 		// sender endpoint
 		cfg.SenderCfg.Schema = schema
 		cfg.SenderCfg.Host = host
@@ -123,6 +140,15 @@ func WithLogger(l logger.Logger) Option {
 	return func(config *Config) {
 		config.Logger = l
 		config.SenderCfg.Logger = l
+		config.ServiceRegisterCfg.Logger = l
+	}
+}
+
+// WithServiceRegister register service meta info. Only enable it when profile is running without tracer.
+// Be aware that tracer will launch a serviceRegister de default, if enable register in profile and tracer is also on, service will be registered twice.
+func WithServiceRegister(enable bool) Option {
+	return func(config *Config) {
+		config.enableServiceRegister = enable
 	}
 }
 
@@ -191,6 +217,10 @@ func NewProfiler(serviceType, service string, opts ...Option) *Profiler {
 
 	resMonitor := res_monitor.NewMonitor()
 	p.resMonitor = resMonitor
+
+	if cfg.enableServiceRegister {
+		p.serviceRegister = service_register.NewRegister(serviceType, service, cfg.ServiceRegisterCfg)
+	}
 	p.manager = manager.NewManager(service, cfg.SettingsCfg, taskChan, resMonitor, cfg.Logger)
 	p.sender = sender.NewSender(cfg.SenderCfg, outChan)
 
@@ -201,7 +231,9 @@ func NewProfiler(serviceType, service string, opts ...Option) *Profiler {
 
 func (p *Profiler) Start() {
 	p.logger.Info("Staring profiler...")
-
+	if p.serviceRegister != nil {
+		p.serviceRegister.Start()
+	}
 	p.resMonitor.Start()
 	p.manager.Start()
 	p.sender.Start()
@@ -223,7 +255,9 @@ func (p *Profiler) Stop() {
 	p.wg.Wait()         // wait runLoop/run to stop, which means no data will be sent
 	p.resMonitor.Stop() // res monitor is needed in task-run
 	p.sender.Stop()     // close sender
-
+	if p.serviceRegister != nil {
+		p.serviceRegister.Stop()
+	}
 	p.logger.Info("profiler stopped")
 }
 

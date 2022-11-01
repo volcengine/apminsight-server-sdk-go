@@ -7,7 +7,7 @@ import (
 	"github.com/volcengine/apminsight-server-sdk-go/trace/aiprofiler/drivers"
 	"github.com/volcengine/apminsight-server-sdk-go/trace/aiprofiler/res_monitor"
 	"github.com/volcengine/apminsight-server-sdk-go/trace/aitracer/logger"
-	"github.com/volcengine/apminsight-server-sdk-go/trace/aitracer/service_register/register_utils"
+	"github.com/volcengine/apminsight-server-sdk-go/trace/internal/service_register/register_utils"
 	"github.com/volcengine/apminsight-server-sdk-go/trace/internal/settings_fetcher"
 	"github.com/volcengine/apminsight-server-sdk-go/trace/internal/settings_fetcher/settings_models"
 )

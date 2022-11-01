@@ -11,11 +11,11 @@ import (
 	"github.com/volcengine/apminsight-server-sdk-go/trace/aitracer/log_collector/log_models"
 	"github.com/volcengine/apminsight-server-sdk-go/trace/aitracer/logger"
 	"github.com/volcengine/apminsight-server-sdk-go/trace/aitracer/runtime"
-	"github.com/volcengine/apminsight-server-sdk-go/trace/aitracer/service_register"
-	"github.com/volcengine/apminsight-server-sdk-go/trace/aitracer/service_register/register_utils"
 	"github.com/volcengine/apminsight-server-sdk-go/trace/aitracer/trace_sampler"
 	"github.com/volcengine/apminsight-server-sdk-go/trace/aitracer/trace_sender"
 	"github.com/volcengine/apminsight-server-sdk-go/trace/aitracer/trace_sender/trace_models"
+	"github.com/volcengine/apminsight-server-sdk-go/trace/internal/service_register"
+	"github.com/volcengine/apminsight-server-sdk-go/trace/internal/service_register/register_utils"
 	"github.com/volcengine/apminsight-server-sdk-go/trace/internal/settings_fetcher"
 	"github.com/volcengine/apminsight-server-sdk-go/trace/internal/settings_fetcher/settings_models"
 )
@@ -111,7 +111,8 @@ func NewTracer(serviceType, service string, opts ...TracerOption) Tracer {
 			t.metricsClient = metrics.NewMetricClient()
 		}
 	}
-	t.serviceRegister = service_register.NewRegister(service, serviceType, t.instanceId, config.ServerRegisterSock, time.Second*30, t.logger)
+
+	t.serviceRegister = service_register.NewRegister(serviceType, service, service_register.Config{Sock: config.ServerRegisterSock, Interval: time.Second * 30, Logger: t.logger})
 	for _, p := range config.PropagatorConfigs {
 		t.injects[p.Format] = p.Injector
 		t.extractors[p.Format] = p.Extractor

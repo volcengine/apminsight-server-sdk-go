@@ -8,7 +8,7 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/volcengine/apminsight-server-sdk-go/trace/aitracer/service_register/register_utils"
+	"github.com/volcengine/apminsight-server-sdk-go/trace/internal/service_register/register_utils"
 )
 
 var pageSize = os.Getpagesize()

@@ -1,23 +1,37 @@
 package service_register
 
 import (
-	"context"
 	"fmt"
 	"io/ioutil"
-	"net"
 	"net/http"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/volcengine/apminsight-server-sdk-go/trace/aitracer/logger"
-	"github.com/volcengine/apminsight-server-sdk-go/trace/aitracer/service_register/register_utils"
 	"github.com/volcengine/apminsight-server-sdk-go/trace/internal"
+	"github.com/volcengine/apminsight-server-sdk-go/trace/internal/agentless_adapter"
+	"github.com/volcengine/apminsight-server-sdk-go/trace/internal/service_register/register_utils"
+	"github.com/volcengine/apminsight-server-sdk-go/trace/internal/utils"
 )
 
 const (
-	network = "unix"
+	agentSockPath = "/service_register"
+	collectorPath = "/server_collect/service_register"
 )
+
+type Config struct {
+	Sock string
+
+	Schema string
+	Host   string
+
+	Interval time.Duration
+	Timeout  time.Duration
+
+	Logger logger.Logger
+}
 
 type Register struct {
 	instanceId string
@@ -35,24 +49,35 @@ type Register struct {
 	wg       sync.WaitGroup
 }
 
-func NewRegister(service, serviceType, instanceId, sock string, interval time.Duration, logger logger.Logger) *Register {
-	url := fmt.Sprintf("http://%s/service_register", network)
-	c := &http.Client{
-		Transport: &http.Transport{
-			DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
-				dialer := net.Dialer{}
-				return dialer.DialContext(ctx, network, sock)
-			},
-		},
-		Timeout: 1 * time.Second,
+func NewRegister(serviceType, service string, config Config) *Register {
+	if config.Logger == nil {
+		config.Logger = &logger.NoopLogger{}
 	}
+	var (
+		c   *http.Client
+		url string
+	)
+	if config.Sock != "" && config.Host == "" {
+		if config.Timeout <= 0 {
+			config.Timeout = 500 * time.Millisecond
+		}
+		url = utils.URLViaUDS(agentSockPath)
+		c = utils.NewHTTPClientViaUDS(config.Sock, config.Timeout)
+	} else {
+		if config.Timeout <= 0 {
+			config.Timeout = 5 * time.Second
+		}
+		url = fmt.Sprintf("%s://%s/%s", config.Schema, config.Host, strings.TrimPrefix(collectorPath, "/"))
+		c = &http.Client{Timeout: config.Timeout}
+	}
+
 	return &Register{
-		instanceId:  instanceId,
+		instanceId:  register_utils.GetInstanceID(),
 		url:         url,
 		service:     service,
 		serviceType: serviceType,
-		logger:      logger,
-		interval:    interval,
+		logger:      config.Logger,
+		interval:    config.Interval,
 		client:      c,
 		stopChan:    make(chan struct{}),
 	}
@@ -102,11 +127,13 @@ func (r *Register) register() {
 		return
 	}
 	q := req.URL.Query()
+	q.Add("hostname", agentless_adapter.GetHostname())
 	q.Add("pid", strconv.Itoa(info.Pid))
 	q.Add("start_time", strconv.FormatInt(info.StartTime, 10))
 	q.Add("service", r.service)
 	q.Add("service_type", r.serviceType)
 	q.Add("runtime_type", internal.RuntimeTypeGo)
+	q.Add("runtime_bearer", agentless_adapter.GetRuntimeBearer())
 	if info.ContainerId != "" {
 		q.Add("container_id", info.ContainerId)
 	}

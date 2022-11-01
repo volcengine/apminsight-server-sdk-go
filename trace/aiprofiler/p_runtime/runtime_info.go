@@ -7,9 +7,9 @@ import (
 	"sync"
 
 	"github.com/volcengine/apminsight-server-sdk-go/trace/aiprofiler/res_monitor"
-	"github.com/volcengine/apminsight-server-sdk-go/trace/aitracer/service_register/register_utils"
 	"github.com/volcengine/apminsight-server-sdk-go/trace/internal"
 	"github.com/volcengine/apminsight-server-sdk-go/trace/internal/agentless_adapter"
+	"github.com/volcengine/apminsight-server-sdk-go/trace/internal/service_register/register_utils"
 )
 
 var (
