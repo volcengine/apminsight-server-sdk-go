@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/volcengine/apminsight-server-sdk-go/trace/aitracer"
+	tracectx "github.com/volcengine/apminsight-server-sdk-go/trace/contrib/context"
 	grpc_go "github.com/volcengine/apminsight-server-sdk-go/trace/contrib/grpc/grpc-go"
 	"github.com/volcengine/apminsight-server-sdk-go/trace/contrib/grpc/grpc-go/example/hello"
 	tracehttp "github.com/volcengine/apminsight-server-sdk-go/trace/contrib/net/http"
@@ -57,10 +58,14 @@ func (s *server) SayHello(ctx context.Context, data *hello.HelloRequest) (*hello
 	if data == nil {
 		return &hello.HelloReply{}, nil
 	}
+	// when ctx is canceled, async work should continue working. so a new ctx is needed
+	AsyncWork(tracectx.NewContextForAsyncTracing(ctx))
 
 	CallRemote(ctx)
 
 	// ok
+	time.Sleep(1 * time.Second)
+	fmt.Printf("rpc done. time=%+v\n", time.Now())
 	return &hello.HelloReply{
 		Message: "Hello " + data.GetName(),
 	}, nil
@@ -98,6 +103,20 @@ func CallRemote(ctx context.Context) {
 	if res != nil {
 		defer res.Body.Close()
 	}
+}
+
+func AsyncWork(ctx context.Context) {
+	span, _ := aitracer.StartSpanFromContext(ctx, "AsyncWork")
+
+	go func() {
+		select {
+		case <-time.After(2 * time.Second): // fake work load
+			span.Finish()
+			fmt.Printf("work done. err=%+v.  time=%+v\n", ctx.Err(), time.Now())
+		case <-ctx.Done():
+			fmt.Printf("canceled. err=%+v.  time=%+v\n", ctx.Err(), time.Now())
+		}
+	}()
 }
 
 type logger struct{}
