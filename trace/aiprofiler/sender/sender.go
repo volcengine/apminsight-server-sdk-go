@@ -62,6 +62,9 @@ func NewSender(cfg Config, in chan *profile_models.ProfileInfo) Sender {
 }
 
 func newHTTPSender(cfg Config, in chan *profile_models.ProfileInfo) Sender {
+	if cfg.Logger == nil {
+		cfg.Logger = &logger.NoopLogger{}
+	}
 	var (
 		c   *http.Client
 		url string
