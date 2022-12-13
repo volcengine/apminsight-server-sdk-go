@@ -3,7 +3,6 @@ package aiprofiler
 import (
 	"fmt"
 	"math/rand"
-	"os"
 	"sync"
 	"testing"
 	"time"
@@ -12,21 +11,18 @@ import (
 	"github.com/volcengine/apminsight-server-sdk-go/trace/aiprofiler/utils"
 )
 
-func TestProfiler(t *testing.T) {
-	os.Setenv("APMPLUS_APP_KEY", "{YOUR_APP_KEY}")
-
+func TestAgentProfiler(t *testing.T) {
 	makeProcessBusy()
 
 	opts := make([]Option, 0)
 	opts = append(opts, WithLogger(&l{}))
-	opts = append(opts, WithHTTPEndPoint("http", "0.0.0.0:8080", 5*time.Second))
 
-	profiler := NewProfiler("http", "server_a", opts...)
+	profiler := NewProfiler("http", "server_agent_profiler", opts...)
 
 	profiler.Start()
 
 	go func() {
-		time.Sleep(80 * time.Second)
+		time.Sleep(500 * time.Second)
 		profiler.Stop()
 	}()
 
@@ -34,7 +30,32 @@ func TestProfiler(t *testing.T) {
 	//localTest(profiler)
 
 	time.Sleep(1000 * time.Second)
+}
 
+func TestAgentlessProfiler(t *testing.T) {
+	// ===== IMPORTANT =====
+	// when used without agent, set APMPLUS_APP_KEY via env
+
+	makeProcessBusy()
+
+	opts := make([]Option, 0)
+	opts = append(opts, WithLogger(&l{}))
+	// for use case without agent
+	opts = append(opts, WithHTTPEndPoint("http", "apmplus-cn-beijing.ivolces.com", 5*time.Second))
+
+	profiler := NewProfiler("http", "server_agentless_profiler", opts...)
+
+	profiler.Start()
+
+	go func() {
+		time.Sleep(500 * time.Second)
+		profiler.Stop()
+	}()
+
+	//// local debug
+	//localTest(profiler)
+
+	time.Sleep(1000 * time.Second)
 }
 
 func localTest(profiler *Profiler) {

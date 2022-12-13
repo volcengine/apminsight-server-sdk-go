@@ -112,7 +112,7 @@ func NewTracer(serviceType, service string, opts ...TracerOption) Tracer {
 		}
 	}
 
-	t.serviceRegister = service_register.NewRegister(serviceType, service, service_register.Config{Sock: config.ServerRegisterSock, Interval: time.Second * 30, Logger: t.logger})
+	t.serviceRegister = service_register.GetRegister(serviceType, service, service_register.Config{Sock: config.ServerRegisterSock, Interval: time.Second * 30, Logger: t.logger})
 	for _, p := range config.PropagatorConfigs {
 		t.injects[p.Format] = p.Injector
 		t.extractors[p.Format] = p.Extractor

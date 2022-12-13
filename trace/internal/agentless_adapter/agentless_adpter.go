@@ -38,7 +38,7 @@ func GetHostname() string {
 
 func GetRuntimeBearer() string {
 	onceRuntimeBearer.Do(func() {
-		hostname = os.Getenv("MY_RUNTIME_BEARER") // set it via kubernetes env
+		runtimeBearer = os.Getenv("MY_RUNTIME_BEARER") // set it via kubernetes env
 	})
-	return hostname
+	return runtimeBearer
 }

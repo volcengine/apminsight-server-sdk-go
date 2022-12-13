@@ -39,8 +39,7 @@ type Config struct {
 	SettingsCfg manager.SettingAddrConfig
 
 	// service register
-	enableServiceRegister bool
-	ServiceRegisterCfg    service_register.Config
+	ServiceRegisterCfg service_register.Config
 
 	// pprof setting
 	mutexFraction int
@@ -144,14 +143,6 @@ func WithLogger(l logger.Logger) Option {
 	}
 }
 
-// WithServiceRegister register service meta info. Only enable it when profile is running without tracer.
-// Be aware that tracer will launch a serviceRegister de default, if enable register in profile and tracer is also on, service will be registered twice.
-func WithServiceRegister(enable bool) Option {
-	return func(config *Config) {
-		config.enableServiceRegister = enable
-	}
-}
-
 // WithBlockProfile enables blockProfile with rate, rate's unit is nanoseconds, which means 1 blocking event per rate nanoseconds is reported. see runtime.SetBlockProfileRate
 // BlockProfile is disabled by default.
 // In most cases, BlockProfile has low CPU overhead. However, please be aware that BlockProfile can cause CPU overhead under certain circumstance. (Setting rate to 10,000ns may cause up to 4% CPU overhead in some scenario according
@@ -218,9 +209,9 @@ func NewProfiler(serviceType, service string, opts ...Option) *Profiler {
 	resMonitor := res_monitor.NewMonitor()
 	p.resMonitor = resMonitor
 
-	if cfg.enableServiceRegister {
-		p.serviceRegister = service_register.NewRegister(serviceType, service, cfg.ServiceRegisterCfg)
-	}
+	// register is singleton, so is safe to call it multiple time
+	p.serviceRegister = service_register.GetRegister(serviceType, service, cfg.ServiceRegisterCfg)
+
 	p.manager = manager.NewManager(service, cfg.SettingsCfg, taskChan, resMonitor, cfg.Logger)
 	p.sender = sender.NewSender(cfg.SenderCfg, outChan)
 
@@ -231,9 +222,8 @@ func NewProfiler(serviceType, service string, opts ...Option) *Profiler {
 
 func (p *Profiler) Start() {
 	p.logger.Info("Staring profiler...")
-	if p.serviceRegister != nil {
-		p.serviceRegister.Start()
-	}
+
+	p.serviceRegister.Start()
 	p.resMonitor.Start()
 	p.manager.Start()
 	p.sender.Start()
@@ -250,14 +240,13 @@ func (p *Profiler) Start() {
 func (p *Profiler) Stop() {
 	p.logger.Info("Stopping profiler...")
 
-	p.manager.Stop()    // close manager first to avoid write to a closed chan
-	close(p.taskChan)   // no task will be executed
-	p.wg.Wait()         // wait runLoop/run to stop, which means no data will be sent
-	p.resMonitor.Stop() // res monitor is needed in task-run
-	p.sender.Stop()     // close sender
-	if p.serviceRegister != nil {
-		p.serviceRegister.Stop()
-	}
+	p.manager.Stop()         // close manager first to avoid write to a closed chan
+	close(p.taskChan)        // no task will be executed
+	p.wg.Wait()              // wait runLoop/run to stop, which means no data will be sent
+	p.resMonitor.Stop()      // res monitor is needed in task-run
+	p.sender.Stop()          // close sender
+	p.serviceRegister.Stop() // close register
+
 	p.logger.Info("profiler stopped")
 }
 

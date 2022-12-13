@@ -34,7 +34,7 @@ type Config struct {
 }
 
 type Register struct {
-	instanceId string
+	instanceID string
 
 	url string
 
@@ -47,48 +47,63 @@ type Register struct {
 	client   *http.Client
 	stopChan chan struct{}
 	wg       sync.WaitGroup
+	runOnce  sync.Once
 }
 
-func NewRegister(serviceType, service string, config Config) *Register {
-	if config.Logger == nil {
-		config.Logger = &logger.NoopLogger{}
-	}
-	var (
-		c   *http.Client
-		url string
-	)
-	if config.Sock != "" && config.Host == "" {
-		if config.Timeout <= 0 {
-			config.Timeout = 500 * time.Millisecond
-		}
-		url = utils.URLViaUDS(agentSockPath)
-		c = utils.NewHTTPClientViaUDS(config.Sock, config.Timeout)
-	} else {
-		if config.Timeout <= 0 {
-			config.Timeout = 5 * time.Second
-		}
-		url = fmt.Sprintf("%s://%s/%s", config.Schema, config.Host, strings.TrimPrefix(collectorPath, "/"))
-		c = &http.Client{Timeout: config.Timeout}
-	}
+var (
+	instance *Register
+	once     sync.Once
+)
 
-	return &Register{
-		instanceId:  register_utils.GetInstanceID(),
-		url:         url,
-		service:     service,
-		serviceType: serviceType,
-		logger:      config.Logger,
-		interval:    config.Interval,
-		client:      c,
-		stopChan:    make(chan struct{}),
-	}
+// GetRegister return a serviceRegister instance.
+// We recognize that one process should only register once so that GetRegister is singleton
+// Register will be initialized only once so make sure invoke GetRegister with same args if you need to call it multiple times.
+func GetRegister(serviceType, service string, config Config) *Register {
+	once.Do(func() {
+		if config.Logger == nil {
+			config.Logger = &logger.NoopLogger{}
+		}
+		var (
+			c   *http.Client
+			url string
+		)
+		if config.Sock != "" && config.Host == "" {
+			if config.Timeout <= 0 {
+				config.Timeout = 500 * time.Millisecond
+			}
+			url = utils.URLViaUDS(agentSockPath)
+			c = utils.NewHTTPClientViaUDS(config.Sock, config.Timeout)
+		} else {
+			if config.Timeout <= 0 {
+				config.Timeout = 5 * time.Second
+			}
+			url = fmt.Sprintf("%s://%s/%s", config.Schema, config.Host, strings.TrimPrefix(collectorPath, "/"))
+			c = &http.Client{Timeout: config.Timeout}
+		}
+		instance = &Register{
+			instanceID:  register_utils.GetInstanceID(),
+			url:         url,
+			service:     service,
+			serviceType: serviceType,
+			logger:      config.Logger,
+			interval:    config.Interval,
+			client:      c,
+			stopChan:    make(chan struct{}),
+		}
+	})
+	return instance
 }
 
 func (r *Register) Start() {
-	r.wg.Add(1)
-	go func() {
-		defer r.wg.Done()
-		r.runLoop()
-	}()
+	r.runOnce.Do(
+		func() {
+			r.wg.Add(1)
+			go func() {
+				defer r.wg.Done()
+				r.runLoop()
+			}()
+		},
+	)
 }
 
 func (r *Register) Stop() {
@@ -126,6 +141,9 @@ func (r *Register) register() {
 		r.logger.Error("send service info to agent err %v", err)
 		return
 	}
+	// set appKey in header for agentless use case
+	req.Header.Set(agentless_adapter.AppKey, agentless_adapter.GetAppKey())
+
 	q := req.URL.Query()
 	q.Add("hostname", agentless_adapter.GetHostname())
 	q.Add("pid", strconv.Itoa(info.Pid))
@@ -140,8 +158,8 @@ func (r *Register) register() {
 	if info.Cmdline != "" {
 		q.Add("full_cmd", info.Cmdline)
 	}
-	if r.instanceId != "" {
-		q.Add("instance_id", r.instanceId)
+	if r.instanceID != "" {
+		q.Add("instance_id", r.instanceID)
 	}
 
 	req.URL.RawQuery = q.Encode()
