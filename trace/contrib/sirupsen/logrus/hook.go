@@ -87,6 +87,11 @@ func (h *Hook) Fire(e *logrus.Entry) error {
 		logData.FileLine = int64(e.Caller.Line)
 	}
 
+	// set traceID
+	if span := aitracer.GetSpanFromContext(e.Context); span != nil && span.Context() != nil {
+		e.Data["traceID"] = span.Context().TraceID()
+	}
+
 	logData.Source = "logrus"
 	h.tracer.Log(e.Context, logData)
 	return nil

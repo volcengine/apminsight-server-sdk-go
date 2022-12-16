@@ -66,7 +66,7 @@ func Test_example(t *testing.T) {
 		}
 		hc = WrapClient(hc, tracer, WithClientServiceGetter(clientServiceGetter))
 
-		req, _ := http.NewRequest(http.MethodGet, "http://127.0.0.1", nil)
+		req, _ := http.NewRequest(http.MethodGet, "http://127.0.0.1/user/1234/detail", nil)
 		req.Header.Add("X-client-service", "my_service")
 
 		// MUST: if ctx not passed in, span http_call will not be related to trace
