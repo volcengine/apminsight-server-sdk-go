@@ -86,12 +86,11 @@ func (s *span) emitMetric() {
 		tags["status"] = strconv.FormatInt(s.status, 10)
 		tags["instance_id"] = t.instanceId
 
-		// add extra tag. server_span may have an upstream service
-		if fromServiceType, ok := s.GetTagString("from_service_type"); ok {
-			tags["from_service_type"] = fromServiceType
-		}
-		if fromService, ok := s.GetTagString("from_service"); ok {
-			tags["from_service"] = fromService
+		// extract span tags and add to metric
+		for _, k := range t.metricTagKeysRegister.GetServerTagKeys() {
+			if v, ok := s.GetTagString(k); ok && v != "" {
+				tags[k] = v
+			}
 		}
 
 		_ = mc.EmitCounter(aiCalledThroughput, 1, tags)
@@ -107,9 +106,11 @@ func (s *span) emitMetric() {
 		tags["call_service"] = s.clientService
 		tags["call_resource"] = s.clientResource
 
-		// add extra tag
-		if slowQuery, ok := s.GetTagString("db.slow_query"); ok {
-			tags["db.slow_query"] = slowQuery
+		// extract span tags and add to metric
+		for _, k := range t.metricTagKeysRegister.GetClientTagKeys() {
+			if v, ok := s.GetTagString(k); ok && v != "" {
+				tags[k] = v
+			}
 		}
 
 		_ = mc.EmitCounter(aiCallThroughput, 1, tags)
@@ -283,83 +284,81 @@ func (s *span) SetTag(key string, value interface{}) Span {
 
 func (s *span) GetTagString(key string) (string, bool) {
 	s.tagsLock.Lock()
+	defer s.tagsLock.Unlock()
 	if s.tagsString == nil {
 		return "", false
 	}
 	value, ok := s.tagsString[key]
-	s.tagsLock.Unlock()
 	return value, ok
-
 }
 
 func (s *span) SetTagString(key string, value string) Span {
 	s.tagsLock.Lock()
+	defer s.tagsLock.Unlock()
 	if s.tagsString == nil {
 		s.tagsString = map[string]string{}
 	}
 	s.tagsString[key] = value
-	s.tagsLock.Unlock()
 	return s
-
 }
 
 func (s *span) GetTagFloat64(key string) (float64, bool) {
 	s.tagsLock.Lock()
+	defer s.tagsLock.Unlock()
 	if s.tagsFloat64 == nil {
 		return 0, false
 	}
 	value, ok := s.tagsFloat64[key]
-	s.tagsLock.Unlock()
 	return value, ok
 }
 
 func (s *span) SetTagFloat64(key string, value float64) Span {
 	s.tagsLock.Lock()
+	defer s.tagsLock.Unlock()
 	if s.tagsFloat64 == nil {
 		s.tagsFloat64 = map[string]float64{}
 	}
 	s.tagsFloat64[key] = value
-	s.tagsLock.Unlock()
 	return s
 }
 
 func (s *span) GetTagInt64(key string) (int64, bool) {
 	s.tagsLock.Lock()
+	defer s.tagsLock.Unlock()
 	if s.tagsInt64 == nil {
 		return 0, false
 	}
 	value, ok := s.tagsInt64[key]
-	s.tagsLock.Unlock()
 	return value, ok
 }
 
 func (s *span) SetTagInt64(key string, value int64) Span {
 	s.tagsLock.Lock()
+	defer s.tagsLock.Unlock()
 	if s.tagsInt64 == nil {
 		s.tagsInt64 = map[string]int64{}
 	}
 	s.tagsInt64[key] = value
-	s.tagsLock.Unlock()
 	return s
 }
 
 func (s *span) SetBaggageItem(restrictedKey, value string) Span {
 	s.spanContext.baggageLock.Lock()
+	defer s.spanContext.baggageLock.Unlock()
 	if s.spanContext.baggage == nil {
 		s.spanContext.baggage = map[string]string{}
 	}
 	s.spanContext.baggage[restrictedKey] = value
-	s.spanContext.baggageLock.Unlock()
 	return s
 }
 
 func (s *span) BaggageItem(restrictedKey string) string {
 	s.spanContext.baggageLock.Lock()
+	defer s.spanContext.baggageLock.Unlock()
 	var ret string
 	if s.spanContext.baggage != nil {
 		ret = s.spanContext.baggage[restrictedKey]
 	}
-	s.spanContext.baggageLock.Unlock()
 	return ret
 }
 

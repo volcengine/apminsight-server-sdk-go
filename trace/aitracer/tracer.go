@@ -11,6 +11,7 @@ import (
 	"github.com/volcengine/apminsight-server-sdk-go/trace/aitracer/log_collector/log_models"
 	"github.com/volcengine/apminsight-server-sdk-go/trace/aitracer/logger"
 	"github.com/volcengine/apminsight-server-sdk-go/trace/aitracer/runtime"
+	"github.com/volcengine/apminsight-server-sdk-go/trace/aitracer/tags"
 	"github.com/volcengine/apminsight-server-sdk-go/trace/aitracer/trace_sampler"
 	"github.com/volcengine/apminsight-server-sdk-go/trace/aitracer/trace_sender"
 	"github.com/volcengine/apminsight-server-sdk-go/trace/aitracer/trace_sender/trace_models"
@@ -57,6 +58,8 @@ type tracer struct {
 	dynamicConfig atomic.Value
 
 	contextAdapter func(context.Context) context.Context
+
+	metricTagKeysRegister tags.MetricTagKeysRegister
 }
 
 func NewTracer(serviceType, service string, opts ...TracerOption) Tracer {
@@ -78,6 +81,8 @@ func NewTracer(serviceType, service string, opts ...TracerOption) Tracer {
 
 		injects:    map[interface{}]Injector{},
 		extractors: map[interface{}]Extractor{},
+
+		metricTagKeysRegister: tags.GetBuiltinTagKeysRegister(),
 	}
 	{
 		t.instanceId = register_utils.GetInstanceID()
