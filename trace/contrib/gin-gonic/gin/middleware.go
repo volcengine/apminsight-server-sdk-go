@@ -14,6 +14,7 @@ type Config struct {
 	ignoreRequest  func(c *gin.Context) bool              // request to be ignored when tracing. requests will still be processed by handler but no tracing will be recorded
 	pathNormalizer func(escapedPath string) string        // getting resource from path needs to decrease cardinality
 	tagsExtractor  func(c *gin.Context) map[string]string // tags extracted from gin.Context will be set in span tags
+	resourceGetter func(c *gin.Context) string            // get resource from gin.Context. if is nil, resource will be set by default logic
 }
 
 type Option func(*Config)
@@ -42,6 +43,14 @@ func WithTagsExtractor(f func(c *gin.Context) map[string]string) Option {
 	}
 }
 
+func WithResourceGetter(f func(c *gin.Context) string) Option {
+	return func(cfg *Config) {
+		if f != nil {
+			cfg.resourceGetter = f
+		}
+	}
+}
+
 func newDefaultConfig() *Config {
 	return &Config{
 		pathNormalizer: defaultPathNormalizer,
@@ -65,7 +74,9 @@ func NewMiddleware(tracer aitracer.Tracer, opts ...Option) gin.HandlerFunc {
 
 		// when pathNotFound, use path as resourceName
 		resourceName := "unknown"
-		if c.FullPath() != "" {
+		if cfg.resourceGetter != nil {
+			resourceName = cfg.resourceGetter(c)
+		} else if c.FullPath() != "" {
 			resourceName = c.FullPath()
 		} else if c.Request != nil && c.Request.URL != nil && c.Request.URL.Path != "" {
 			resourceName = cfg.pathNormalizer(c.Request.URL.Path) // pathNormalizer is never nil

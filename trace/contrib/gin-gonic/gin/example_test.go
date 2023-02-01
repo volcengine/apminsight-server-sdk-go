@@ -3,6 +3,7 @@ package gin
 import (
 	"fmt"
 	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/gin-gonic/gin"
@@ -49,6 +50,7 @@ func Test_example(t *testing.T) {
 			//	return escapedPath
 			//}),
 			WithTagsExtractor(exampleTagsExtractor),
+			WithResourceGetter(exampleResourceGetterHandlerName),
 		}...),
 	)
 
@@ -74,8 +76,15 @@ func Test_example(t *testing.T) {
 	r.GET("/panic/", func(context *gin.Context) {
 		panic("test")
 	})
+	r.GET("/h", handlerA())
 
 	_ = r.Run("0.0.0.0:8912")
+}
+
+func handlerA() func(context *gin.Context) {
+	return func(context *gin.Context) {
+		context.JSON(http.StatusNoContent, "ok")
+	}
 }
 
 func Test_path_normalizer(t *testing.T) {
@@ -119,4 +128,19 @@ func exampleTagsExtractor(c *gin.Context) map[string]string {
 		tags["X-LOG-ID"] = c.Request.Header.Get("X-LOG-ID")
 	}
 	return tags
+}
+
+func exampleResourceGetterByURLQuery(c *gin.Context) string {
+	return c.Query("Action") //use URL query 'Action' as resource
+}
+
+// Not Recommended
+// could result in something like func1 if handler is wrapped
+func exampleResourceGetterHandlerName(c *gin.Context) string {
+	method := c.HandlerName()
+	pos := strings.LastIndexByte(method, '.')
+	if pos != -1 {
+		method = c.HandlerName()[pos+1:]
+	}
+	return method
 }
