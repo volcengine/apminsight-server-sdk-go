@@ -173,9 +173,10 @@ type TracerConfig struct {
 	ServiceType string
 	Service     string
 
-	SenderChanSize int
-	SenderSock     string
-	SenderNumber   int
+	SenderChanSize   int
+	SenderSock       string
+	SenderStreamSock string
+	SenderNumber     int
 
 	Logger logger.Logger
 
@@ -185,9 +186,10 @@ type TracerConfig struct {
 	EnableLogSender bool
 	LogSenderDebug  bool // for safety, can not use incoming logger.Logger in LogCollector
 
-	LogSenderSock     string
-	LogSenderNumber   int
-	LogSenderChanSize int
+	LogSenderSock       string
+	LogSenderStreamSock string
+	LogSenderNumber     int
+	LogSenderChanSize   int
 
 	EnableRuntimeMetric bool
 
@@ -218,6 +220,12 @@ func WithSenderChanSize(chanSize int) TracerOption {
 func WithSenderSock(senderSock string) TracerOption {
 	return func(config *TracerConfig) {
 		config.SenderSock = senderSock
+	}
+}
+
+func WithSenderStreamSock(senderStreamSock string) TracerOption {
+	return func(config *TracerConfig) {
+		config.SenderStreamSock = senderStreamSock
 	}
 }
 

@@ -1,3 +1,3 @@
 package internal
 
-const SDKVersionNum = "v1.3.6"
+const SDKVersionNum = "v1.3.19"

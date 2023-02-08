@@ -8,3 +8,7 @@ gen_profile_pb:
 
 gen_settings_pb:
 	protoc -I $(idlpath)/pb/settings  $(idlpath)/pb/settings/settings.proto --gogofaster_out=./trace/internal/settings_fetcher/settings_models
+
+release:
+	./scripts/check_version.sh
+	./scripts/git_tag.sh

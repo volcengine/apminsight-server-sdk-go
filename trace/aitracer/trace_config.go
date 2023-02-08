@@ -5,11 +5,15 @@ import (
 )
 
 const (
-	defaultSenderSock     = "/var/run/apminsight/trace.sock"
+	defaultSenderSock       = "/var/run/apminsight/trace.sock"
+	defaultSenderStreamSock = "/var/run/apminsight/trace_stream.sock"
+
 	defaultSenderChanSize = 1024
 	defaultSenderNumber   = 4
 
-	defaultLogSenderSock     = "/var/run/apminsight/log.sock"
+	defaultLogSenderSock       = "/var/run/apminsight/log.sock"
+	defaultLogSenderStreamSock = "/var/run/apminsight/log_stream.sock"
+
 	defaultLogSenderChanSize = 1024
 	defaultLogSenderNumber   = 4
 
@@ -24,17 +28,19 @@ func newDefaultTracerConfig() TracerConfig {
 	return TracerConfig{
 		Logger: &logger.NoopLogger{},
 
-		SenderChanSize: defaultSenderChanSize,
-		SenderSock:     defaultSenderSock,
-		SenderNumber:   defaultSenderNumber,
+		SenderChanSize:   defaultSenderChanSize,
+		SenderSock:       defaultSenderSock,
+		SenderStreamSock: defaultSenderStreamSock,
+		SenderNumber:     defaultSenderNumber,
 
 		EnableMetric: true,
 		MetricSock:   defaultMetricSock,
 
-		EnableLogSender:   true,
-		LogSenderSock:     defaultLogSenderSock,
-		LogSenderNumber:   defaultLogSenderNumber,
-		LogSenderChanSize: defaultLogSenderChanSize,
+		EnableLogSender:     true,
+		LogSenderSock:       defaultLogSenderSock,
+		LogSenderStreamSock: defaultLogSenderStreamSock,
+		LogSenderNumber:     defaultLogSenderNumber,
+		LogSenderChanSize:   defaultLogSenderChanSize,
 
 		EnableRuntimeMetric: true,
 

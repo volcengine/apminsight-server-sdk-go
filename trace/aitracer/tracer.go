@@ -94,6 +94,7 @@ func NewTracer(serviceType, service string, opts ...TracerOption) Tracer {
 	if config.EnableLogSender {
 		config := log_collector.LogCollectorConfig{
 			Sock:         config.LogSenderSock,
+			StreamSock:   config.LogSenderStreamSock,
 			WorkerNumber: config.LogSenderNumber,
 			ChanSize:     config.LogSenderChanSize,
 			Debug:        config.LogSenderDebug,
@@ -123,7 +124,7 @@ func NewTracer(serviceType, service string, opts ...TracerOption) Tracer {
 		t.extractors[p.Format] = p.Extractor
 	}
 	for i := 0; i < config.SenderNumber; i++ {
-		t.traceSenders = append(t.traceSenders, trace_sender.NewSender(config.SenderSock, t.traceChan, t.logger))
+		t.traceSenders = append(t.traceSenders, trace_sender.NewTraceSender(config.SenderSock, config.SenderStreamSock, t.traceChan, t.logger))
 	}
 	t.settingsFetcher = settings_fetcher.NewSettingsFetcher(settings_fetcher.SettingsFetcherConfig{
 		Service: t.service,

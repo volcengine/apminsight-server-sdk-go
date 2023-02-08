@@ -13,3 +13,7 @@ const (
 const (
 	GoErrorType = "go.error_type"
 )
+
+const (
+	AgentVersionSupportStreamSender = "1.0.28"
+)
